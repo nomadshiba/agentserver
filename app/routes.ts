@@ -2,6 +2,7 @@ import { ArrayCodec, Void } from "@nomadshiba/codec";
 import { Schema } from "./libs/Router.ts";
 import { ModelOutput } from "./handlers/models/ModelOutput.ts";
 import { AgentOutput } from "./handlers/agents/AgentOutput.ts";
+import { ProviderInput, ProviderPartialInput } from "./handlers/providers/ProviderInput.ts";
 import { ProviderOutput } from "./handlers/providers/ProviderOutput.ts";
 
 export type RoutesSchema = typeof RoutesSchema;
@@ -14,8 +15,9 @@ export const RoutesSchema = {
     "GET /v1/agents/:agentId": { input: Void, output: AgentOutput },
     "DELETE /v1/agents/:agentId": { input: Void, output: ProviderOutput },
 
-    "POST /v1/providers": { input: Void, output: Void },
+    "POST /v1/providers": { input: ProviderInput, output: ProviderOutput },
     "GET /v1/providers": { input: Void, output: new ArrayCodec(ProviderOutput) },
     "GET /v1/providers/:providerId": { input: Void, output: ProviderOutput },
+    "PATCH /v1/providers/:providerId": { input: ProviderPartialInput, output: ProviderOutput },
     "DELETE /v1/providers/:providerId": { input: Void, output: ProviderOutput },
 } as const satisfies Schema;
