@@ -13,11 +13,12 @@ export const RoutesSchema = {
     "POST /v1/agents": { input: Void, output: Void },
     "GET /v1/agents": { input: Void, output: new ArrayCodec(AgentOutput) },
     "GET /v1/agents/:agentId": { input: Void, output: AgentOutput },
-    "DELETE /v1/agents/:agentId": { input: Void, output: ProviderOutput },
+    "PATCH /v1/agents/:agentId": { input: Void, output: Void },
+    "DELETE /v1/agents/:agentId": { input: Void, output: Void },
 
-    "POST /v1/providers": { input: ProviderInput, output: ProviderOutput },
+    "POST /v1/providers": { input: ProviderInput, output: Void },
     "GET /v1/providers": { input: Void, output: new ArrayCodec(ProviderOutput) },
     "GET /v1/providers/:providerId": { input: Void, output: ProviderOutput },
-    "PATCH /v1/providers/:providerId": { input: ProviderPartialInput, output: ProviderOutput },
-    "DELETE /v1/providers/:providerId": { input: Void, output: ProviderOutput },
+    "PATCH /v1/providers/:providerId": { input: ProviderPartialInput, output: Void },
+    "DELETE /v1/providers/:providerId": { input: Void, output: Void },
 } as const satisfies Schema;

@@ -28,20 +28,14 @@ router.registerHandler("POST /v1/providers", async ({ data }) => {
                 .execute();
         } else {
             return {
-                status: "BadRequest",
-                message: `Invalid connection kind: ${data.connection.kind satisfies never}`,
+                status: "NotImplemented",
+                message: `Connection not implemented: ${data.connection.kind satisfies never}`,
             };
         }
 
         return {
             status: "OK",
-            data: {
-                id,
-                name: data.name,
-                connection: data.connection,
-                created: now,
-                updated: now,
-            },
+            data: null,
         };
     });
 });

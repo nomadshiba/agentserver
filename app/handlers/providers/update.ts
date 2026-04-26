@@ -1,11 +1,9 @@
-import { db } from "~/database/client.ts";
-import { router } from "~/router.ts";
-import { RouteHandlerResult } from "~/libs/Router.ts";
-import { RoutesSchema } from "~/routes.ts";
 import { Updateable } from "@kysely/kysely";
+import { db } from "~/database/client.ts";
 import { Provider } from "~/database/generated/types.ts";
-import { Codec } from "@nomadshiba/codec";
-import { ProviderOutput } from "~/handlers/providers/ProviderOutput.ts";
+import { RouteHandlerResult } from "~/libs/Router.ts";
+import { router } from "~/router.ts";
+import { RoutesSchema } from "~/routes.ts";
 
 router.registerHandler("PATCH /v1/providers/:providerId", async ({ params, data }) => {
     const id = params.pathname.providerId;
@@ -20,23 +18,9 @@ router.registerHandler("PATCH /v1/providers/:providerId", async ({ params, data 
 
         if (data.connection) {
             providerValues.connection_kind = data.connection.kind;
-        }
-
-        const providerRow = await tx.updateTable("provider")
-            .set(providerValues)
-            .returningAll()
-            .executeTakeFirst();
-
-        if (!providerRow) {
-            return { status: "NotFound" };
-        }
-
-        let connection: Codec.InferInput<typeof ProviderOutput>["connection"];
-        if (data.connection) {
-            providerValues.connection_kind = data.connection.kind;
 
             if (data.connection.kind === "oai") {
-                const connectionRow = await tx.insertInto("provider_connection_kind_oai")
+                await tx.insertInto("provider_connection_kind_oai")
                     .values({
                         id,
                         base: data.connection.value.base.href,
@@ -48,53 +32,26 @@ router.registerHandler("PATCH /v1/providers/:providerId", async ({ params, data 
                             key: eb.ref("excluded.key"),
                         }))
                     )
-                    .returningAll()
                     .executeTakeFirstOrThrow();
-
-                connection = {
-                    kind: "oai",
-                    value: {
-                        base: connectionRow.base,
-                        key: connectionRow.key,
-                    },
-                };
-            } else {
-                return {
-                    status: "BadRequest",
-                    message: `Invalid connection kind: ${data.connection.kind satisfies never}`,
-                };
-            }
-        } else {
-            if (providerRow.connection_kind === "oai") {
-                const connectionRow = await db.selectFrom("provider_connection_kind_oai")
-                    .where("id", "=", id)
-                    .selectAll()
-                    .executeTakeFirstOrThrow();
-
-                connection = {
-                    kind: providerRow.connection_kind,
-                    value: {
-                        base: connectionRow.base,
-                        key: connectionRow.key,
-                    },
-                };
             } else {
                 return {
                     status: "NotImplemented",
-                    message: `Connection kind not implemented: ${providerRow.connection_kind}`,
+                    message: `Connection not implemented: ${data.connection.kind satisfies never}`,
                 };
             }
         }
 
+        const result = await tx.updateTable("provider")
+            .set(providerValues)
+            .executeTakeFirstOrThrow();
+
+        if (!result.numUpdatedRows) {
+            return { status: "NotFound" };
+        }
+
         return {
             status: "OK",
-            data: {
-                id,
-                name: providerRow.name,
-                connection,
-                created: providerRow.created,
-                updated: providerRow.updated,
-            },
+            data: null,
         };
     });
 });
