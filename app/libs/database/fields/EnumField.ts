@@ -1,6 +1,8 @@
 import { Column, Field, FieldGeneric, FieldValue } from "~/libs/database/Schema.ts";
 
 export type VariantsGeneric = Record<string, FieldGeneric>;
+export type EnumFieldGenetic = EnumField<VariantsGeneric>;
+export type EnumFieldInfer<T extends EnumFieldGenetic> = EnumFieldValue<T["variants"]>;
 export type EnumFieldValue<T extends VariantsGeneric> = {
     [K in keyof T]: { tag: K & string; value: FieldValue<T[K]> };
 }[keyof T];

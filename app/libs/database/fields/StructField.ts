@@ -4,6 +4,8 @@ type WithoutQuestion<K extends string> = K extends `${infer Base}?` ? Base : K;
 type IsOptional<K extends string> = K extends `${string}?` ? true : false;
 
 export type ShapeGeneric = Record<string, FieldGeneric>;
+export type StructFieldGeneric = StructField<ShapeGeneric>;
+export type StructFieldInfer<T extends StructFieldGeneric> = StructFieldValue<T["shape"]>;
 export type StructFieldValue<T extends ShapeGeneric> =
     & {
         [K in keyof T as IsOptional<K & string> extends true ? WithoutQuestion<K & string> : never]+?: FieldValue<T[K]>;
