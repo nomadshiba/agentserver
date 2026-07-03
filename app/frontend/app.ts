@@ -12,6 +12,18 @@ type ChatMessage = Awaited<ReturnType<typeof client.fetch<"GET /v1/chats/:chatId
 type Provider = Awaited<ReturnType<typeof client.fetch<"GET /v1/providers/:providerId">>>;
 type Model = Awaited<ReturnType<typeof client.fetch<"GET /v1/models/:modelName">>>;
 type Settings = Awaited<ReturnType<typeof client.fetch<"GET /v1/settings">>>;
+type Agent = Awaited<ReturnType<typeof client.fetch<"GET /v1/agents">>>[number];
+
+type ChatEvent =
+    | { kind: "user_message"; value: { id: string; content: string } }
+    | { kind: "assistant_start"; value: { id: string } }
+    | { kind: "assistant_text"; value: { id: string; delta: string } }
+    | { kind: "assistant_refusal"; value: { id: string; delta: string } }
+    | { kind: "assistant_tool_call"; value: { id: string; tool_call_id: string; name: string; arguments: string } }
+    | { kind: "assistant_done"; value: { id: string } }
+    | { kind: "tool_start"; value: { tool_call_id: string; name: string; arguments: string } }
+    | { kind: "tool_result"; value: { tool_call_id: string; content: string } }
+    | { kind: "error"; value: { message: string } };
 
 const state = {
     chats: [] as Chat[],
@@ -19,7 +31,10 @@ const state = {
     messages: [] as ChatMessage[],
     providers: [] as Provider[],
     models: [] as Model[],
+    agents: [] as Agent[],
     settings: null as Settings | null,
+    ws: null as WebSocket | null,
+    liveMessages: new Map<string, { kind: string; text: string; toolCalls: { id: string; name: string; args: string }[]; toolResults: Map<string, string> }>(),
 };
 
 const $ = <T extends HTMLElement>(sel: string) => document.querySelector(sel) as T;
@@ -31,6 +46,7 @@ const el = (tag: string, cls?: string) => {
 
 const msgInput = $<HTMLInputElement>("#msg-input");
 const sendBtn = $<HTMLButtonElement>("#send-btn");
+const agentSelect = $<HTMLSelectElement>("#agent-select");
 const providerSelect = $<HTMLSelectElement>("#provider-select");
 const modelSelect = $<HTMLSelectElement>("#model-select");
 const chatList = $<HTMLDivElement>("#chat-list");
@@ -49,6 +65,11 @@ async function loadProviders() {
     state.providers = await client.fetch("GET /v1/providers", { params: { pathname: {}, search: {} } });
     renderProviders();
     renderProviderSelect();
+}
+
+async function loadAgents() {
+    state.agents = await client.fetch("GET /v1/agents", { params: { pathname: {}, search: {} } });
+    renderAgentSelect();
 }
 
 async function loadSettings() {
@@ -71,7 +92,73 @@ async function loadMessages(chatId: string) {
     state.messages = await client.fetch("GET /v1/chats/:chatId/messages", {
         params: { pathname: { chatId }, search: {} },
     });
+    state.liveMessages.clear();
     renderMessages();
+}
+
+function connectWS(chatId: string) {
+    if (state.ws) {
+        state.ws.close();
+        state.ws = null;
+    }
+    const proto = location.protocol === "https:" ? "wss:" : "ws:";
+    const ws = new WebSocket(`${proto}//${location.host}/v1/chats/${chatId}/stream`);
+    ws.onmessage = (e) => {
+        const event: ChatEvent = JSON.parse(e.data);
+        handleEvent(event);
+    };
+    ws.onerror = () => console.error("ws error");
+    state.ws = ws;
+}
+
+function handleEvent(event: ChatEvent) {
+    if (event.kind === "user_message") {
+        const live = { kind: "user", text: event.value.content, toolCalls: [], toolResults: new Map() };
+        state.liveMessages.set(event.value.id, live);
+        renderLive();
+    } else if (event.kind === "assistant_start") {
+        const live = { kind: "assistant", text: "", toolCalls: [] as { id: string; name: string; args: string }[], toolResults: new Map<string, string>() };
+        state.liveMessages.set(event.value.id, live);
+        renderLive();
+    } else if (event.kind === "assistant_text") {
+        const live = state.liveMessages.get(event.value.id);
+        if (live) {
+            live.text += event.value.delta;
+            renderLive();
+        }
+    } else if (event.kind === "assistant_refusal") {
+        const live = state.liveMessages.get(event.value.id);
+        if (live) {
+            live.text += `[refused: ${event.value.delta}]`;
+            renderLive();
+        }
+    } else if (event.kind === "assistant_tool_call") {
+        const live = state.liveMessages.get(event.value.id);
+        if (live) {
+            live.toolCalls.push({ id: event.value.tool_call_id, name: event.value.name, args: event.value.arguments });
+            renderLive();
+        }
+    } else if (event.kind === "tool_result") {
+        for (const live of state.liveMessages.values()) {
+            if (live.toolResults.has(event.value.tool_call_id)) continue;
+            const tc = live.toolCalls.find((t) => t.id === event.value.tool_call_id);
+            if (tc) {
+                live.toolResults.set(event.value.tool_call_id, event.value.content);
+                renderLive();
+                break;
+            }
+        }
+    } else if (event.kind === "assistant_done") {
+        const live = state.liveMessages.get(event.value.id);
+        if (live) {
+            live.kind = "assistant-done";
+            renderLive();
+        }
+    } else if (event.kind === "error") {
+        const live = { kind: "error", text: event.value.message, toolCalls: [], toolResults: new Map() };
+        state.liveMessages.set("error-" + Date.now(), live);
+        renderLive();
+    }
 }
 
 function renderChatList() {
@@ -125,6 +212,17 @@ function renderProviderSelect() {
     }
 }
 
+function renderAgentSelect() {
+    agentSelect.innerHTML = "";
+    for (const a of state.agents) {
+        const opt = el("option") as HTMLOptionElement;
+        opt.value = a.name;
+        opt.textContent = a.name;
+        if (state.settings?.last_agent === a.name) opt.selected = true;
+        agentSelect.appendChild(opt);
+    }
+}
+
 function renderModelSelect() {
     modelSelect.innerHTML = "";
     for (const m of state.models) {
@@ -137,13 +235,21 @@ function renderModelSelect() {
 }
 
 function renderMessages() {
+    renderLive();
+}
+
+function renderLive() {
     messagesEl.innerHTML = "";
-    if (state.messages.length === 0) {
+
+    const hasStored = state.messages.length > 0;
+    const hasLive = state.liveMessages.size > 0;
+    if (!hasStored && !hasLive) {
         const empty = el("div", "empty");
         empty.textContent = "no messages yet. send one below.";
         messagesEl.appendChild(empty);
         return;
     }
+
     for (const msg of state.messages) {
         const wrap = el("div", "msg " + msg.content.kind);
         const role = el("div", "role");
@@ -166,6 +272,25 @@ function renderMessages() {
         wrap.appendChild(bubble);
         messagesEl.appendChild(wrap);
     }
+
+    for (const live of state.liveMessages.values()) {
+        const wrap = el("div", "msg " + live.kind);
+        const role = el("div", "role");
+        role.textContent = live.kind;
+        const bubble = el("div", "bubble");
+        const parts: string[] = [];
+        if (live.text) parts.push(live.text);
+        for (const tc of live.toolCalls) {
+            parts.push(`-> ${tc.name}(${tc.args})`);
+            const result = live.toolResults.get(tc.id);
+            if (result) parts.push(`   = ${result}`);
+        }
+        bubble.textContent = parts.join("\n") || "...";
+        wrap.appendChild(role);
+        wrap.appendChild(bubble);
+        messagesEl.appendChild(wrap);
+    }
+
     messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
@@ -173,6 +298,7 @@ async function selectChat(chat: Chat) {
     state.currentChat = chat;
     renderChatList();
     await loadMessages(chat.id);
+    connectWS(chat.id);
     msgInput.disabled = false;
     sendBtn.disabled = false;
 }
@@ -225,6 +351,14 @@ async function selectModel(id: string) {
     });
 }
 
+async function selectAgent(name: string) {
+    state.settings!.last_agent = name;
+    await client.fetch("PATCH /v1/settings", {
+        params: { pathname: {}, search: {} },
+        data: { last_agent: name },
+    });
+}
+
 async function sendMessage() {
     const text = msgInput.value.trim();
     if (!text || !state.currentChat) return;
@@ -234,8 +368,6 @@ async function sendMessage() {
         params: { pathname: { chatId: state.currentChat.id }, search: {} },
         data: { content: text },
     });
-
-    await loadMessages(state.currentChat.id);
 }
 
 $<HTMLButtonElement>("#new-chat").onclick = createChat;
@@ -250,11 +382,19 @@ providerSelect.addEventListener("change", (e) => {
 modelSelect.addEventListener("change", (e) => {
     selectModel((e.target as HTMLSelectElement).value);
 });
+agentSelect.addEventListener("change", (e) => {
+    selectAgent((e.target as HTMLSelectElement).value);
+});
 
 await loadChats();
 await loadProviders();
+await loadAgents();
 await loadSettings();
 if (!state.settings?.last_provider_id && state.providers.length) {
     await selectProvider(state.providers[0].id);
+}
+if (!state.settings?.last_agent && state.agents.length) {
+    await selectAgent(state.agents[0].name);
+    renderAgentSelect();
 }
 await loadModels();

@@ -66,10 +66,11 @@ await db.schema.createTable("settings").ifNotExists()
     .addColumn("id", "integer", (col) => col.notNull().primaryKey())
     .addColumn("last_provider_id", "text", (col) => col.references("provider.id").onDelete("set null"))
     .addColumn("last_model_id", "text")
+    .addColumn("last_agent", "text")
     .addColumn("updated", "integer", (col) => col.notNull())
     .execute();
 
 await db.insertInto("settings")
-    .values({ id: 0, last_provider_id: null, last_model_id: null, updated: Date.now() })
+    .values({ id: 0, last_provider_id: null, last_model_id: null, last_agent: null, updated: Date.now() })
     .onConflict((oc) => oc.doNothing())
     .execute();

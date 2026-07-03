@@ -10,27 +10,38 @@ router.registerHandler("GET /v1/chats/:chatId/messages", async ({ params }) => {
 
     const rows = await db.selectFrom("chat_message")
         .where("chat_message.chat_id", "=", chatId)
-        .selectAll("chat_message")
+        .select([
+            "chat_message.id",
+            "chat_message.chat_id",
+            "chat_message.role",
+            "chat_message.created",
+        ])
         .select((eb) => [
             jsonObjectFrom(
                 eb.selectFrom("chat_message_role_system")
                     .whereRef("chat_message_role_system.id", "=", "chat_message.id")
-                    .selectAll("chat_message_role_system"),
+                    .select("chat_message_role_system.content"),
             ).as("RoleSystem"),
             jsonObjectFrom(
                 eb.selectFrom("chat_message_role_user")
                     .whereRef("chat_message_role_user.id", "=", "chat_message.id")
-                    .selectAll("chat_message_role_user"),
+                    .select("chat_message_role_user.content"),
             ).as("RoleUser"),
             jsonObjectFrom(
                 eb.selectFrom("chat_message_role_assistant")
                     .whereRef("chat_message_role_assistant.id", "=", "chat_message.id")
-                    .selectAll("chat_message_role_assistant")
+                    .select([
+                        "chat_message_role_assistant.content",
+                        "chat_message_role_assistant.refusal",
+                    ])
                     .select((eb) => [
                         jsonArrayFrom(
                             eb.selectFrom("chat_message_role_assistant_toolcall")
-                                .whereRef("chat_message_role_assistant_toolcall.chat_message_id", "=", "chat_message_id")
-                                .selectAll("chat_message_role_assistant_toolcall")
+                                .whereRef("chat_message_role_assistant_toolcall.chat_message_id", "=", "chat_message.id")
+                                .select([
+                                    "chat_message_role_assistant_toolcall.id",
+                                    "chat_message_role_assistant_toolcall.type",
+                                ])
                                 .select((eb) =>
                                     jsonObjectFrom(
                                         eb.selectFrom("chat_message_role_assistant_toolcall_type_function")
@@ -39,7 +50,10 @@ router.registerHandler("GET /v1/chats/:chatId/messages", async ({ params }) => {
                                                 "=",
                                                 "chat_message_role_assistant_toolcall.id",
                                             )
-                                            .selectAll("chat_message_role_assistant_toolcall_type_function"),
+                                            .select([
+                                                "chat_message_role_assistant_toolcall_type_function.name",
+                                                "chat_message_role_assistant_toolcall_type_function.arguments",
+                                            ]),
                                     ).as("TypeFunction")
                                 ),
                         ).as("ToolCalls"),
@@ -48,7 +62,10 @@ router.registerHandler("GET /v1/chats/:chatId/messages", async ({ params }) => {
             jsonObjectFrom(
                 eb.selectFrom("chat_message_role_tool")
                     .whereRef("chat_message_role_tool.id", "=", "chat_message.id")
-                    .selectAll("chat_message_role_tool"),
+                    .select([
+                        "chat_message_role_tool.content",
+                        "chat_message_role_tool.tool_call_id",
+                    ]),
             ).as("RoleTool"),
         ])
         .execute();

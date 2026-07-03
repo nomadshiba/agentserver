@@ -2,7 +2,12 @@ import { db } from "~/backend/database/client.ts";
 import { router } from "~/router.ts";
 
 router.registerHandler("PATCH /v1/settings", async ({ data }) => {
-    const values: { last_provider_id?: string | null; last_model_id?: string | null; updated?: number } = {
+    const values: {
+        last_provider_id?: string | null;
+        last_model_id?: string | null;
+        last_agent?: string | null;
+        updated?: number;
+    } = {
         updated: Date.now(),
     };
 
@@ -11,6 +16,9 @@ router.registerHandler("PATCH /v1/settings", async ({ data }) => {
     }
     if ("last_model_id" in data) {
         values.last_model_id = data.last_model_id ?? null;
+    }
+    if ("last_agent" in data) {
+        values.last_agent = data.last_agent ?? null;
     }
 
     await db.updateTable("settings")

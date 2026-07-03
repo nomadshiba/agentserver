@@ -16,6 +16,7 @@ router.registerHandler("GET /v1/settings", async () => {
         data: {
             last_provider_id: row.last_provider_id ?? undefined,
             last_model_id: row.last_model_id ?? undefined,
+            last_agent: row.last_agent ?? undefined,
             updated: row.updated,
         },
     };

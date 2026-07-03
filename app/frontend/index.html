@@ -152,6 +152,17 @@
             font-size: 12px;
         }
 
+        .msg.assistant-done .bubble {
+            background: #21262d;
+            border: 1px solid #30363d;
+        }
+
+        .msg.error .bubble {
+            background: #4a1e1e;
+            border: 1px solid #f85149;
+            color: #f85149;
+        }
+
         #compose {
             display: flex;
             gap: 8px;
@@ -254,6 +265,8 @@
     </div>
     <div id="main">
         <div id="topbar">
+            <label>agent:</label>
+            <select id="agent-select"></select>
             <label>provider:</label>
             <select id="provider-select"></select>
             <label>model:</label>

@@ -1,3 +1,4 @@
+import { chatBus, type ChatEvent } from "~/backend/agents/chatBus.ts";
 import { router } from "~/router.ts";
 
 await import("~/backend/database/migrate.ts");
@@ -24,16 +25,37 @@ await import("~/backend/handlers/settings/one.ts");
 const PORT = Number(Deno.env.get("PORT") ?? 8000);
 const FE_ROOT = new URL("./frontend/", import.meta.url);
 
+const CHAT_STREAM_RE = /^\/v1\/chats\/([0-9a-f-]+)\/stream$/;
+
 Deno.serve({ port: PORT, onError: (error: unknown) => {
     console.error(error);
     return new Response("Internal Server Error", { status: 500 });
 } }, (request) => {
     const url = new URL(request.url);
+
+    const wsMatch = url.pathname.match(CHAT_STREAM_RE);
+    if (wsMatch && request.headers.get("upgrade") === "websocket") {
+        return handleChatStream(request, wsMatch[1]);
+    }
+
     if (url.pathname.startsWith("/v1/")) {
         return router.resolveRequest(request);
     }
     return serveStatic(url, FE_ROOT);
 });
+
+function handleChatStream(request: Request, chatId: string): Response {
+    const { socket, response } = Deno.upgradeWebSocket(request, { idleTimeout: 0 });
+
+    socket.onopen = () => {
+        const unsubscribe = chatBus.subscribe(chatId, (event: ChatEvent) => {
+            socket.send(JSON.stringify(event));
+        });
+        socket.onclose = () => unsubscribe();
+    };
+
+    return response;
+}
 
 async function serveStatic(url: URL, root: URL): Promise<Response> {
     let pathname = url.pathname;

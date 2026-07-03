@@ -1,5 +1,5 @@
-import { ChatMessage } from "~/backend/database/generated/types.ts";
 import { Tool } from "~/backend/tools/Tool.ts";
+import type { LoadedMessage } from "~/backend/agents/run.ts";
 
 export type AgentKind = "primary" | "subagent" | "all";
 
@@ -8,5 +8,5 @@ export type Agent = {
     description: string;
     kind: AgentKind;
     tools: Tool[];
-    prompt(history: ChatMessage[]): Promise<string> | string;
+    prompt(history: LoadedMessage[]): Promise<string> | string;
 };

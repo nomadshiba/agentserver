@@ -33,16 +33,32 @@ export const db = new Kysely<DB>({
         },
         transformResult(args) {
             for (const row of args.result.rows) {
-                for (const name in row) {
-                    const value = row[name];
-                    if (name.startsWith(name[0].toUpperCase()) && typeof value === "string") {
-                        row[name] = JSON.parse(value);
-                    } else {
-                        row[name] = value;
-                    }
-                }
+                transformDeep(row);
             }
             return Promise.resolve(args.result);
         },
     }],
 });
+
+function isJsonKey(name: string): boolean {
+    const first = name[0];
+    return first !== undefined && first !== first.toLowerCase();
+}
+
+function transformDeep(value: unknown): unknown {
+    if (Array.isArray(value)) {
+        for (let i = 0; i < value.length; i++) {
+            value[i] = transformDeep(value[i]);
+        }
+        return value;
+    }
+    if (value !== null && typeof value === "object") {
+        const record = value as Record<string, unknown>;
+        for (const name in record) {
+            const v = record[name];
+            record[name] = isJsonKey(name) && typeof v === "string" ? transformDeep(JSON.parse(v)) : transformDeep(v);
+        }
+        return record;
+    }
+    return value;
+}

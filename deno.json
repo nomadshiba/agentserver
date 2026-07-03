@@ -10,7 +10,7 @@
         "generate:db": "deno run -A --env-file ./app/backend/database/generate.ts",
         "check": "deno check app"
     },
-    "unstable": ["raw-imports"],
+    "unstable": ["raw-imports", "worker-options"],
     "compilerOptions": {
         "lib": ["esnext", "deno.window", "dom", "dom.iterable"]
     },
