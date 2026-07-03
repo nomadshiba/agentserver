@@ -19,11 +19,15 @@ type ChatEvent =
     | { kind: "assistant_start"; value: { id: string } }
     | { kind: "assistant_text"; value: { id: string; delta: string } }
     | { kind: "assistant_refusal"; value: { id: string; delta: string } }
+    | { kind: "assistant_tool_call_delta"; value: { id: string; index: number; tool_call_id: string; name: string; arguments: string; display: string } }
     | { kind: "assistant_tool_call"; value: { id: string; tool_call_id: string; name: string; arguments: string } }
     | { kind: "assistant_done"; value: { id: string } }
-    | { kind: "tool_start"; value: { tool_call_id: string; name: string; arguments: string } }
-    | { kind: "tool_result"; value: { tool_call_id: string; content: string } }
+    | { kind: "tool_start"; value: { tool_call_id: string; name: string; arguments: string; display: string } }
+    | { kind: "tool_result"; value: { tool_call_id: string; content: string; display: string } }
     | { kind: "error"; value: { message: string } };
+
+type LiveToolCall = { id: string; name: string; args: string; display: string; resultDisplay?: string };
+type LiveMessage = { kind: string; text: string; toolCalls: LiveToolCall[] };
 
 const state = {
     chats: [] as Chat[],
@@ -34,7 +38,7 @@ const state = {
     agents: [] as Agent[],
     settings: null as Settings | null,
     ws: null as WebSocket | null,
-    liveMessages: new Map<string, { kind: string; text: string; toolCalls: { id: string; name: string; args: string }[]; toolResults: Map<string, string> }>(),
+    liveMessages: new Map<string, LiveMessage>(),
 };
 
 const $ = <T extends HTMLElement>(sel: string) => document.querySelector(sel) as T;
@@ -113,11 +117,11 @@ function connectWS(chatId: string) {
 
 function handleEvent(event: ChatEvent) {
     if (event.kind === "user_message") {
-        const live = { kind: "user", text: event.value.content, toolCalls: [], toolResults: new Map() };
+        const live: LiveMessage = { kind: "user", text: event.value.content, toolCalls: [] };
         state.liveMessages.set(event.value.id, live);
         renderLive();
     } else if (event.kind === "assistant_start") {
-        const live = { kind: "assistant", text: "", toolCalls: [] as { id: string; name: string; args: string }[], toolResults: new Map<string, string>() };
+        const live: LiveMessage = { kind: "assistant", text: "", toolCalls: [] };
         state.liveMessages.set(event.value.id, live);
         renderLive();
     } else if (event.kind === "assistant_text") {
@@ -132,18 +136,33 @@ function handleEvent(event: ChatEvent) {
             live.text += `[refused: ${event.value.delta}]`;
             renderLive();
         }
-    } else if (event.kind === "assistant_tool_call") {
+    } else if (event.kind === "assistant_tool_call_delta") {
         const live = state.liveMessages.get(event.value.id);
         if (live) {
-            live.toolCalls.push({ id: event.value.tool_call_id, name: event.value.name, args: event.value.arguments });
+            const existing = live.toolCalls.find((t) => t.id === event.value.tool_call_id);
+            if (existing) {
+                existing.name = event.value.name;
+                existing.args = event.value.arguments;
+                existing.display = event.value.display;
+            } else {
+                live.toolCalls.push({ id: event.value.tool_call_id, name: event.value.name, args: event.value.arguments, display: event.value.display });
+            }
             renderLive();
+        }
+    } else if (event.kind === "tool_start") {
+        const live = [...state.liveMessages.values()].find((m) => m.toolCalls.some((t) => t.id === event.value.tool_call_id));
+        if (live) {
+            const tc = live.toolCalls.find((t) => t.id === event.value.tool_call_id);
+            if (tc) {
+                tc.display = event.value.display;
+                renderLive();
+            }
         }
     } else if (event.kind === "tool_result") {
         for (const live of state.liveMessages.values()) {
-            if (live.toolResults.has(event.value.tool_call_id)) continue;
             const tc = live.toolCalls.find((t) => t.id === event.value.tool_call_id);
             if (tc) {
-                live.toolResults.set(event.value.tool_call_id, event.value.content);
+                tc.resultDisplay = event.value.display;
                 renderLive();
                 break;
             }
@@ -155,7 +174,7 @@ function handleEvent(event: ChatEvent) {
             renderLive();
         }
     } else if (event.kind === "error") {
-        const live = { kind: "error", text: event.value.message, toolCalls: [], toolResults: new Map() };
+        const live: LiveMessage = { kind: "error", text: event.value.message, toolCalls: [] };
         state.liveMessages.set("error-" + Date.now(), live);
         renderLive();
     }
@@ -281,9 +300,8 @@ function renderLive() {
         const parts: string[] = [];
         if (live.text) parts.push(live.text);
         for (const tc of live.toolCalls) {
-            parts.push(`-> ${tc.name}(${tc.args})`);
-            const result = live.toolResults.get(tc.id);
-            if (result) parts.push(`   = ${result}`);
+            parts.push(`▸ ${tc.display}`);
+            if (tc.resultDisplay) parts.push(`  ${tc.resultDisplay}`);
         }
         bubble.textContent = parts.join("\n") || "...";
         wrap.appendChild(role);

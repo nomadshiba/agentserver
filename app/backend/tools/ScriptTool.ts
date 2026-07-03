@@ -50,6 +50,24 @@ export class ScriptTool extends Tool {
         return this.run(call);
     }
 
+    override renderCall(_name: string, args: string): string {
+        let code: string | undefined;
+        try {
+            code = (JSON.parse(args) as { code?: string }).code;
+        } catch {
+            code = undefined;
+        }
+        if (!code) return `script(${args})`;
+        const firstLine = code.split("\n")[0].trim();
+        const preview = code.length > 60 ? code.slice(0, 60) + "..." : code;
+        return `script \`${firstLine.length > 30 ? preview.slice(0, 30) + "..." : preview}\``;
+    }
+
+    override renderResult(_name: string, _args: string, result: string): string {
+        const preview = result.length > 200 ? result.slice(0, 200) + "..." : result;
+        return `script -> ${preview}`;
+    }
+
     async run(call: ProviderToolCall): Promise<ProviderToolMessage> {
         let args: { code?: string; input?: string };
         try {
@@ -103,7 +121,11 @@ export class ScriptTool extends Tool {
                 finish(this.toolResult(call, this.stringify(e.data)));
             };
             worker.onerror = (e: ErrorEvent) => {
+                e.preventDefault();
                 finish(this.toolResult(call, `Error: ${e.message}`));
+            };
+            worker.onmessageerror = () => {
+                finish(this.toolResult(call, "Error: message error in worker"));
             };
             worker.postMessage(input);
         });

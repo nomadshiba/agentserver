@@ -235,6 +235,12 @@ export async function runAgent(params: {
                     if (delta.value.name) existing.name = delta.value.name;
                     if (delta.value.arguments) existing.arguments += delta.value.arguments;
                     toolCallBuffers.set(delta.value.index, existing);
+                    const tool = toolMap.get(existing.name);
+                    const display = tool ? tool.renderCall(existing.name, existing.arguments) : `${existing.name}(${existing.arguments})`;
+                    chatBus.emit(chatId, {
+                        kind: "assistant_tool_call_delta",
+                        value: { id: assistantId, index: delta.value.index, tool_call_id: existing.id, name: existing.name, arguments: existing.arguments, display },
+                    });
                 }
             }
         } catch (error) {
@@ -261,13 +267,14 @@ export async function runAgent(params: {
         messages = [...messages, reply];
 
         for (const call of toolCalls) {
+            const tool = toolMap.get(call.function.name);
+            const callDisplay = tool ? tool.renderCall(call.function.name, call.function.arguments) : `${call.function.name}(${call.function.arguments})`;
             chatBus.emit(chatId, {
                 kind: "assistant_tool_call",
                 value: { id: assistantId, tool_call_id: call.id, name: call.function.name, arguments: call.function.arguments },
             });
-            chatBus.emit(chatId, { kind: "tool_start", value: { tool_call_id: call.id, name: call.function.name, arguments: call.function.arguments } });
+            chatBus.emit(chatId, { kind: "tool_start", value: { tool_call_id: call.id, name: call.function.name, arguments: call.function.arguments, display: callDisplay } });
 
-            const tool = toolMap.get(call.function.name);
             let result: ProviderToolMessage;
             if (tool) {
                 try {
@@ -280,7 +287,8 @@ export async function runAgent(params: {
             }
 
             await storeToolMessage(chatId, result);
-            chatBus.emit(chatId, { kind: "tool_result", value: { tool_call_id: call.id, content: result.content } });
+            const resultDisplay = tool ? tool.renderResult(call.function.name, call.function.arguments, result.content) : result.content;
+            chatBus.emit(chatId, { kind: "tool_result", value: { tool_call_id: call.id, content: result.content, display: resultDisplay } });
             messages = [...messages, result];
         }
     }

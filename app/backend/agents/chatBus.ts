@@ -3,10 +3,11 @@ export type ChatEvent =
     | { kind: "assistant_start"; value: { id: string } }
     | { kind: "assistant_text"; value: { id: string; delta: string } }
     | { kind: "assistant_refusal"; value: { id: string; delta: string } }
+    | { kind: "assistant_tool_call_delta"; value: { id: string; index: number; tool_call_id: string; name: string; arguments: string; display: string } }
     | { kind: "assistant_tool_call"; value: { id: string; tool_call_id: string; name: string; arguments: string } }
     | { kind: "assistant_done"; value: { id: string } }
-    | { kind: "tool_start"; value: { tool_call_id: string; name: string; arguments: string } }
-    | { kind: "tool_result"; value: { tool_call_id: string; content: string } }
+    | { kind: "tool_start"; value: { tool_call_id: string; name: string; arguments: string; display: string } }
+    | { kind: "tool_result"; value: { tool_call_id: string; content: string; display: string } }
     | { kind: "error"; value: { message: string } };
 
 type Subscriber = (event: ChatEvent) => void;
