@@ -21,28 +21,28 @@ export class ScriptTool extends Tool {
     }
 
     definition(): ProviderToolDefinition {
+        const granted = (Object.keys(this.permissions) as (keyof ScriptToolPermissions)[])
+            .filter((k) => this.permissions[k]);
+        const permsText = granted.length ? `Granted permissions: ${granted.join(", ")}.` : "No extra permissions granted.";
+
         return {
             type: "function",
             function: {
                 name: "script",
                 description:
-                    "Run TypeScript code in a sandboxed Deno Worker. The code runs in a Worker with restricted permissions. Use `self.onmessage = (e) => {...}` and call `self.postMessage(result)` to return a value. `e.data.input` is the input string. Previous tool results referenced via `use` are available as `e.data.results[id]` (pre-parsed if JSON). Returns the posted value as a string.",
+                    `Run TypeScript code in a sandboxed Deno Worker. ${permsText} Use \`self.onmessage = (e) => {...}\` and call \`self.postMessage(result)\` to return a value. Previous tool results referenced via \`use\` are available as \`e.data[id]\` (pre-parsed if JSON). Returns the posted value as a string.`,
                 parameters: {
                     type: "object",
                     properties: {
                         code: {
                             type: "string",
                             description:
-                                "TypeScript code to run in the worker. Use `self.onmessage = (e) => {...}` and call `self.postMessage(result)` to return. Access previous tool results via `e.data.results[id]`.",
-                        },
-                        input: {
-                            type: "string",
-                            description: "Optional input data to pass to the worker via postMessage (e.data).",
+                                "TypeScript code to run in the worker. Use `self.onmessage = (e) => {...}` and call `self.postMessage(result)` to return. Access previous tool results via `e.data[id]`. Inline any other values directly in the code.",
                         },
                         use: {
                             type: "array",
                             items: { type: "string" },
-                            description: "IDs (tool_call_id) of previous tool results to make available as RESULTS[id] (pre-parsed if JSON).",
+                            description: "IDs (tool_call_id) of previous tool results to make available as `e.data[id]` (pre-parsed if JSON).",
                         },
                     },
                     required: ["code"],
@@ -72,7 +72,7 @@ export class ScriptTool extends Tool {
     }
 
     async run(call: ProviderToolCall, history: LoadedMessage[]): Promise<ProviderToolMessage> {
-        let args: { code?: string; input?: string; use?: string[] };
+        let args: { code?: string; use?: string[] };
         try {
             args = JSON.parse(call.function.arguments);
         } catch {
@@ -82,7 +82,6 @@ export class ScriptTool extends Tool {
         const code = args.code;
         if (!code) return this.toolResult(call, "Error: missing 'code' argument");
 
-        const input = args.input ?? "";
         const useIds = args.use ?? [];
 
         const results: Record<string, unknown> = {};
@@ -140,7 +139,7 @@ export class ScriptTool extends Tool {
             worker.onmessageerror = () => {
                 finish(this.toolResult(call, "Error: message error in worker"));
             };
-            worker.postMessage({ input, results });
+            worker.postMessage(results);
         });
     }
 
