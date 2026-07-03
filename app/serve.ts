@@ -1,8 +1,6 @@
-import { createOAIProviderClient } from "~/provider.ts";
+import { ProviderClient } from "~/backend/providers/ProviderClient.ts";
 
-const testClient = createOAIProviderClient({
+const ollamaProvider = ProviderClient.create({
     base: "https://ollama.com/v1",
-    key: "3c8d277861cc45da83ebf6fffce99730.hJ73XtnPwVNQw8Z8XdPmoHQh",
+    key: "8ed6c167f2ed49b7b857489ebc65c50d.HcZ-_TqL_bSxX5dmaDMBY6bV",
 });
-
-testClient;

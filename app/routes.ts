@@ -1,25 +1,20 @@
 import { ArrayCodec, Void } from "@nomadshiba/codec";
-import { ChatInput } from "~/handlers/chats/ChatInput.ts";
-import { ChatOutput } from "~/handlers/chats/ChatOutput.ts";
-import { ChatMessageOutput } from "~/handlers/chats/messages/ChatMessageOutput.ts";
-import { MessageContentUser } from "~/handlers/chats/messages/MessageContent.ts";
-import { AgentInput } from "./handlers/agents/AgentInput.ts";
-import { AgentOutput } from "./handlers/agents/AgentOutput.ts";
-import { ModelOutput } from "./handlers/models/ModelOutput.ts";
-import { ProviderInput } from "./handlers/providers/ProviderInput.ts";
-import { ProviderOutput } from "./handlers/providers/ProviderOutput.ts";
-import { Schema } from "./libs/Router.ts";
+import { AgentOutput } from "~/backend/handlers/agents/AgentOutput.ts";
+import { ChatInput } from "~/backend/handlers/chats/ChatInput.ts";
+import { ChatOutput } from "~/backend/handlers/chats/ChatOutput.ts";
+import { ChatMessageOutput } from "~/backend/handlers/chats/messages/ChatMessageOutput.ts";
+import { MessageContentUser } from "~/backend/handlers/chats/messages/MessageContent.ts";
+import { ModelOutput } from "~/backend/handlers/models/ModelOutput.ts";
+import { Schema } from "~/libs/Router.ts";
+import { ProviderInput } from "~/backend/handlers/providers/ProviderInput.ts";
+import { ProviderOutput } from "~/backend/handlers/providers/ProviderOutput.ts";
 
 export type RoutesSchema = typeof RoutesSchema;
 export const RoutesSchema = {
     "GET /v1/models": { input: Void, output: new ArrayCodec(ModelOutput) },
     "GET /v1/models/:modelName": { input: Void, output: ModelOutput },
 
-    "POST /v1/agents": { input: AgentInput, output: Void },
     "GET /v1/agents": { input: Void, output: new ArrayCodec(AgentOutput) },
-    "GET /v1/agents/:agentId": { input: Void, output: AgentOutput },
-    "PATCH /v1/agents/:agentId": { input: AgentInput.partial(), output: Void },
-    "DELETE /v1/agents/:agentId": { input: Void, output: Void },
 
     "POST /v1/providers": { input: ProviderInput, output: Void },
     "GET /v1/providers": { input: Void, output: new ArrayCodec(ProviderOutput) },
