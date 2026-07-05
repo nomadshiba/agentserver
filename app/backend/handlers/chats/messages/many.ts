@@ -3,7 +3,7 @@ import { Codec } from "@nomadshiba/codec";
 import { db } from "~/backend/database/client.ts";
 import { router } from "~/router.ts";
 import { MessageContent } from "~/backend/handlers/chats/messages/MessageContent.ts";
-import { RouteResponse } from "~/libs/RouterResponse.ts";
+import { RouteResponse } from "~/libs/routing/RouterResponse.ts";
 import { renderToolCall, renderToolResult } from "~/backend/tools/registry.ts";
 
 router.registerHandler("GET /v1/chats/:chatId/messages", async ({ params }) => {

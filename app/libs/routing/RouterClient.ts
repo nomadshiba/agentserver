@@ -1,5 +1,5 @@
 import { Codec } from "@nomadshiba/codec";
-import { Schema, SchemaKey } from "~/libs/Router.ts";
+import { Schema, SchemaKey } from "~/libs/routing/Router.ts";
 import { _ } from "~/types.ts";
 
 type InferItem<T extends Schema, K extends keyof T> = Extract<T[K], Schema[keyof Schema]>;
@@ -20,7 +20,7 @@ export class ClientError extends Error {
     }
 }
 
-export class Client<const TSchema extends Schema> {
+export class RouterClient<const TSchema extends Schema> {
     private constructor(
         public readonly schema: TSchema,
         private readonly baseUrl: string,
@@ -31,8 +31,8 @@ export class Client<const TSchema extends Schema> {
         baseUrl: string | URL;
         schema: TSchema;
         fetch?: typeof fetch;
-    }): Client<TSchema> {
-        return new Client(
+    }): RouterClient<TSchema> {
+        return new RouterClient(
             params.schema,
             String(params.baseUrl).replace(/\/$/, ""),
             params.fetch ?? fetch,

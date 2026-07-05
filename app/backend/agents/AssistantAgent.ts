@@ -5,13 +5,11 @@ export const AssistantAgent = {
     name: "Assistant",
     description: "A general-purpose assistant with a scripting tool.",
     kind: "primary",
+    prompt: [
+        "You are a helpful assistant. Answer the user's questions clearly and concisely.",
+        "You have access to tools — refer to each tool's own description and parameters for how to use it.",
+    ].join("\n"),
     tools: [
         new ScriptTool({ net: true, import: true }),
     ],
-    prompt() {
-        return [
-            "You are a helpful assistant. Answer the user's questions clearly and concisely.",
-            "You have access to tools — refer to each tool's own description and parameters for how to use it.",
-        ].join("\n");
-    },
 } as const satisfies Agent;

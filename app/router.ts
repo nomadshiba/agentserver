@@ -1,4 +1,4 @@
-import { Router } from "~/libs/Router.ts";
+import { Router } from "~/libs/routing/Router.ts";
 import { RoutesSchema } from "~/routes.ts";
 
 export const router = new Router({

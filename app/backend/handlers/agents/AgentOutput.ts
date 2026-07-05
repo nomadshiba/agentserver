@@ -1,6 +1,6 @@
 import { Codec, Str, StructCodec, UnionCodec, Void } from "@nomadshiba/codec";
 
-export type Agent = Codec.InferOutput<typeof AgentOutput>;
+export type AgentOutput = Codec.InferOutput<typeof AgentOutput>;
 export const AgentOutput = new StructCodec({
     name: Str,
     description: Str,

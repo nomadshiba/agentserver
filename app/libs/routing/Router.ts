@@ -1,5 +1,5 @@
 import { Codec } from "@nomadshiba/codec";
-import { RouteResponse, RouteResponseOptions } from "~/libs/RouterResponse.ts";
+import { RouteResponse, RouteResponseOptions } from "~/libs/routing/RouterResponse.ts";
 import { _, PromiseOrValue } from "~/types.ts";
 
 type SchemaKeyGeneric = `${string} /${string}`;

@@ -1,7 +1,7 @@
 import { Updateable } from "@kysely/kysely";
 import { db } from "~/backend/database/client.ts";
 import { Provider } from "~/backend/database/generated/types.ts";
-import { RouteHandlerResult } from "~/libs/Router.ts";
+import { RouteHandlerResult } from "~/libs/routing/Router.ts";
 import { router } from "~/router.ts";
 import { RoutesSchema } from "~/routes.ts";
 import { invalidateModelsCache } from "~/backend/providers/modelsCache.ts";

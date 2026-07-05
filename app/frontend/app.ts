@@ -1,8 +1,8 @@
-import { Client } from "~/libs/RouterClient.ts";
+import { RouterClient } from "~/libs/routing/RouterClient.ts";
 import { RoutesSchema } from "~/routes.ts";
 import { renderMarkdown } from "~/frontend/markdown.ts";
 
-const client = Client.create<RoutesSchema>({
+const client = RouterClient.create<RoutesSchema>({
     baseUrl: new URL("/", location.origin),
     schema: RoutesSchema,
     fetch: fetch.bind(window),

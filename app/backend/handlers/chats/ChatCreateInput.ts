@@ -1,5 +1,5 @@
 import { Str, StructCodec } from "@nomadshiba/codec";
 
-export const ChatInput = new StructCodec({
+export const ChatCreateInput = new StructCodec({
     name: Str,
 });

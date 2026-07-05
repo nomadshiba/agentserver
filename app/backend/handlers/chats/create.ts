@@ -1,24 +1,12 @@
-import { db } from "~/backend/database/client.ts";
-import { RouteHandlerResult } from "~/libs/Router.ts";
+import { ChatClient } from "~/backend/chats/ChatClient.ts";
+import { RouteHandlerResult } from "~/libs/routing/Router.ts";
 import { router } from "~/router.ts";
 import { RoutesSchema } from "~/routes.ts";
 
 router.registerHandler("POST /v1/chats", async ({ data }) => {
-    const id = crypto.randomUUID();
-    const now = Date.now();
-
-    await db.insertInto("chat")
-        .values({
-            id,
-            name: data.name,
-            root_message_id: null,
-            created: now,
-            updated: now,
-        })
-        .execute();
-
+    const chat = await ChatClient.create(data.name);
     return {
         status: "OK",
-        data: null,
+        data: { id: chat.id },
     } satisfies RouteHandlerResult<RoutesSchema, "POST /v1/chats">;
 });

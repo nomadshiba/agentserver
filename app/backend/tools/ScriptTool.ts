@@ -1,20 +1,19 @@
-import { LoadedMessage } from "~/backend/agents/run.ts";
 import { ProviderToolCall, ProviderToolDefinition, ProviderToolMessage } from "~/backend/providers/ProviderClient.ts";
 import { Tool } from "~/backend/tools/Tool.ts";
+import { ChatClient } from "~/backend/chats/ChatClient.ts";
 
 export type ScriptToolPermissions = {
     net?: boolean | string[];
     read?: boolean | string[];
     write?: boolean | string[];
-    env?: boolean;
-    run?: boolean;
-    ffi?: boolean;
-    sys?: boolean;
-    import?: boolean;
+    env?: boolean | string[];
+    run?: boolean | string[];
+    ffi?: boolean | string[];
+    sys?: boolean | string[];
+    import?: boolean | string[];
 };
 
 const PRELOAD_TIMEOUT_MS = 60_000;
-
 
 export class ScriptTool extends Tool {
     constructor(private readonly permissions: ScriptToolPermissions = {}) {
@@ -25,9 +24,7 @@ export class ScriptTool extends Tool {
         const granted = (Object.keys(this.permissions) as (keyof ScriptToolPermissions)[])
             .filter((k) => this.permissions[k]);
         const permsText = granted.length ? `Granted permissions: ${granted.join(", ")}.` : "No extra permissions granted.";
-        const importsText = this.permissions.import
-            ? " Remote imports are allowed."
-            : "";
+        const importsText = this.permissions.import ? " Remote imports are allowed." : "";
 
         return {
             type: "function",
@@ -66,7 +63,7 @@ export class ScriptTool extends Tool {
                             type: "array",
                             items: { type: "string" },
                             description:
-                                "IDs (tool_call_id) of previous tool results to make available as `e.data[\"<tool_call_id>\"]` (pre-parsed if JSON). Prefer this over recomputing values you already have.",
+                                'IDs (tool_call_id) of previous tool results to make available as `e.data["<tool_call_id>"]` (pre-parsed if JSON). Prefer this over recomputing values you already have.',
                         },
                         preload: {
                             type: "array",
@@ -87,29 +84,7 @@ export class ScriptTool extends Tool {
         };
     }
 
-    execute(history: LoadedMessage[], call: ProviderToolCall): Promise<ProviderToolMessage> {
-        return this.run(call, history);
-    }
-
-    override renderCall(_name: string, args: string): string {
-        let parsed: { code?: string; use?: string[]; preload?: string[]; timeout?: number };
-        try {
-            parsed = JSON.parse(args);
-        } catch {
-            return `~~script~~(${args})`;
-        }
-        if (!parsed.code) return `~~script~~(${args})`;
-        const usePart = parsed.use?.length ? `\n\n**use:** \`${parsed.use.join("`, `")}\`` : "";
-        const preloadPart = parsed.preload?.length ? `\n\n**preload:** \`${parsed.preload.join("`, `")}\`` : "";
-        const timeoutPart = parsed.timeout ? `\n\n**timeout:** ${parsed.timeout}s` : "";
-        return `### script\n\n\`\`\`typescript\n${parsed.code}\n\`\`\`${usePart}${preloadPart}${timeoutPart}`;
-    }
-
-    override renderResult(_name: string, _args: string, result: string): string {
-        return `### result\n\n\`\`\`\n${result}\n\`\`\``;
-    }
-
-    async run(call: ProviderToolCall, history: LoadedMessage[]): Promise<ProviderToolMessage> {
+    public async execute(chat: ChatClient, call: ProviderToolCall): Promise<ProviderToolMessage> {
         let args: { code?: string; use?: string[]; preload?: string[]; timeout?: number };
         try {
             args = JSON.parse(call.function.arguments);
@@ -149,10 +124,10 @@ export class ScriptTool extends Tool {
         const useIds = args.use ?? [];
 
         const results: Record<string, unknown> = {};
-        for (const msg of history) {
-            if (msg.role === "tool" && msg.tool) {
-                if (useIds.includes(msg.tool.tool_call_id)) {
-                    results[msg.tool.tool_call_id] = this.tryParse(msg.tool.content);
+        for (const message of chat.messages()) {
+            if (message.role === "tool") {
+                if (useIds.includes(message.tool_call_id)) {
+                    results[message.tool_call_id] = this.tryParse(message.content);
                 }
             }
         }
@@ -231,5 +206,23 @@ export class ScriptTool extends Tool {
         } catch {
             return String(value);
         }
+    }
+
+    override renderCall(_name: string, args: string): string {
+        let parsed: { code?: string; use?: string[]; preload?: string[]; timeout?: number };
+        try {
+            parsed = JSON.parse(args);
+        } catch {
+            return `~~script~~(${args})`;
+        }
+        if (!parsed.code) return `~~script~~(${args})`;
+        const usePart = parsed.use?.length ? `\n\n**use:** \`${parsed.use.join("`, `")}\`` : "";
+        const preloadPart = parsed.preload?.length ? `\n\n**preload:** \`${parsed.preload.join("`, `")}\`` : "";
+        const timeoutPart = parsed.timeout ? `\n\n**timeout:** ${parsed.timeout}s` : "";
+        return `### script\n\n\`\`\`typescript\n${parsed.code}\n\`\`\`${usePart}${preloadPart}${timeoutPart}`;
+    }
+
+    override renderResult(_name: string, _args: string, result: string): string {
+        return `### result\n\n\`\`\`\n${result}\n\`\`\``;
     }
 }

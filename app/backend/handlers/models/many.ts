@@ -1,28 +1,13 @@
 import { db } from "~/backend/database/client.ts";
-import { RouteHandler, RouteHandlerOptions } from "~/libs/Router.ts";
-import { RoutesSchema } from "~/routes.ts";
-import { router } from "~/router.ts";
-import type { _ } from "~/types.ts";
 import { getCachedModels } from "~/backend/providers/modelsCache.ts";
+import { router } from "~/router.ts";
 
-async function handleModels({ params }: RouteHandlerOptions<RoutesSchema, "GET /v1/models?provider=:provider", _>) {
-    const providerId = params.search.provider;
-    let providerIds: string[] = [];
+router.registerHandler("GET /v1/models", () => handleModels());
+router.registerHandler("GET /v1/models?provider=:provider", ({ params }) => handleModels(params.search.provider));
 
-    if (providerId) {
-        providerIds = [providerId];
-    } else {
-        const settings = await db.selectFrom("settings")
-            .where("settings.id", "=", 0)
-            .select("settings.last_provider_id")
-            .executeTakeFirst();
-        if (settings?.last_provider_id) {
-            providerIds = [settings.last_provider_id];
-        }
-    }
-
+async function handleModels(providerId?: string) {
     const providers = await db.selectFrom("provider")
-        .where("provider.id", "in", providerIds)
+        .$if(Boolean(providerId), (qb) => qb.where("provider.id", "=", providerId!))
         .selectAll("provider")
         .execute();
 
@@ -41,6 +26,3 @@ async function handleModels({ params }: RouteHandlerOptions<RoutesSchema, "GET /
 
     return { status: "OK", data: models } as const;
 }
-
-router.registerHandler("GET /v1/models?provider=:provider", handleModels);
-router.registerHandler("GET /v1/models", handleModels as unknown as RouteHandler<RoutesSchema, "GET /v1/models", _>);

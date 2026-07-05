@@ -1,26 +1,3 @@
-export type ProviderModel = { name: string; id: string; created: number };
-
-export type ProviderTool = {
-    name: string;
-    description?: string;
-    parameters: Record<string, unknown>; // JSON Schema object
-};
-
-export type ProviderChatInput = {
-    model: string;
-    messages: ProviderChatMessage[];
-    temperature?: number;
-    max_tokens?: number;
-    tools?: ProviderTool[];
-    tool_choice?: "none" | "auto" | "required" | { type: "function"; function: { name: string } };
-};
-
-export type ProviderStreamDelta =
-    | { kind: "text"; value: string }
-    | { kind: "refusal"; value: string }
-    | { kind: "tool_call"; value: { index: number; id?: string; name?: string; arguments?: string } }
-    | { kind: "done"; value: { finish_reason: string | null } };
-
 export class ProviderClient {
     public readonly base: string;
     public readonly key: string;
@@ -31,8 +8,7 @@ export class ProviderClient {
     }
 
     static create(options: { base: string; key: string }): ProviderClient {
-        const base = options.base.replace(/\/+$/, "");
-        return new ProviderClient(base, options.key);
+        return new ProviderClient(options.base, options.key);
     }
 
     async chat(input: ProviderChatInput): Promise<ProviderAssistantMessage> {
@@ -42,14 +18,7 @@ export class ProviderClient {
             temperature: input.temperature,
             max_tokens: input.max_tokens,
             stream: false,
-            tools: input.tools?.map((t): ProviderToolDefinition => ({
-                type: "function",
-                function: {
-                    name: t.name,
-                    description: t.description,
-                    parameters: t.parameters,
-                },
-            })),
+            tools: input.tools,
             tool_choice: input.tool_choice,
         };
 
@@ -72,21 +41,14 @@ export class ProviderClient {
         return output.choices[0].message;
     }
 
-    async *chatStream(input: ProviderChatInput): AsyncIterable<ProviderStreamDelta> {
+    async *chatStream(input: ProviderChatInput): AsyncIterable<ProviderAssistantMessageStream> {
         const body = {
             model: input.model,
             messages: input.messages,
             temperature: input.temperature,
             max_tokens: input.max_tokens,
             stream: true,
-            tools: input.tools?.map((t): ProviderToolDefinition => ({
-                type: "function",
-                function: {
-                    name: t.name,
-                    description: t.description,
-                    parameters: t.parameters,
-                },
-            })),
+            tools: input.tools,
             tool_choice: input.tool_choice,
         };
 
@@ -173,6 +135,23 @@ export class ProviderClient {
         return json.data.map((model) => ({ id: model.id, name: model.id, created: model.created * 1000 }));
     }
 }
+
+export type ProviderModel = { name: string; id: string; created: number };
+
+export type ProviderChatInput = {
+    model: string;
+    messages: ProviderChatMessage[];
+    temperature?: number;
+    max_tokens?: number;
+    tools?: ProviderToolDefinition[];
+    tool_choice?: "none" | "auto" | "required" | { type: "function"; function: { name: string } };
+};
+
+export type ProviderAssistantMessageStream =
+    | { kind: "text"; value: string }
+    | { kind: "refusal"; value: string }
+    | { kind: "tool_call"; value: { index: number; id?: string; name?: string; arguments?: string } }
+    | { kind: "done"; value: { finish_reason: string | null } };
 
 export type ProviderToolCall = {
     id: string;
