@@ -39,8 +39,8 @@ export class ChatClient {
         await db.insertInto("chat").values({
             id,
             name,
-            agent: lastChat?.agent,
-            model: lastChat?.agent,
+            agent: lastChat?.agent ?? agents[0].name,
+            model: lastChat?.model,
             provider_id: lastChat?.provider_id,
             created: now,
             updated: now,
@@ -49,12 +49,22 @@ export class ChatClient {
         return ChatClient.getOrLoad(id);
     }
 
-    private static chatCache = new WeakRefMap<string, Promise<ChatClient>>();
+    private static chatCache = new WeakRefMap<string, ChatClient>();
+    private static loading = new Map<string, Promise<ChatClient>>();
     public static getOrLoad(chatId: string): Promise<ChatClient> {
-        const cache = this.chatCache.get(chatId);
-        if (cache) return cache;
-        const promise = this.load(chatId);
-        this.chatCache.set(chatId, promise);
+        const cached = this.chatCache.get(chatId);
+        if (cached) return Promise.resolve(cached);
+
+        const inflight = this.loading.get(chatId);
+        if (inflight) return inflight;
+
+        const promise = this.load(chatId)
+            .then((chat) => {
+                this.chatCache.set(chatId, chat);
+                return chat;
+            })
+            .finally(() => this.loading.delete(chatId));
+        this.loading.set(chatId, promise);
         return promise;
     }
     private static async load(chatId: string): Promise<ChatClient> {

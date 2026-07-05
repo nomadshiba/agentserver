@@ -113,15 +113,6 @@ export async function runAgent(chat: ChatClient): Promise<void> {
             }
 
             await chat.pushMessage(result);
-            const resultDisplay = tool ? tool.renderResult(call.function.name, call.function.arguments, result.content) : result.content;
-            chat.emitter.emit({
-                type: "messsage",
-                data: {
-                    role: "tool",
-                    tool_call_id: call.id,
-                    content: result.content,
-                },
-            });
         }
     }
 }

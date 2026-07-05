@@ -122,9 +122,8 @@ router.registerHandler("GET /v1/chats/:chatId/messages", async ({ params }) => {
                 content = {
                     kind: "tool",
                     value: {
-                        content: row.RoleTool.content,
+                        content: renderToolResult(toolName, "", row.RoleTool.content),
                         tool_call_id: row.RoleTool.tool_call_id,
-                        display: renderToolResult(toolName, "", row.RoleTool.content),
                     },
                 };
             } else {

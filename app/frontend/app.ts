@@ -1,6 +1,8 @@
 import { RouterClient } from "~/libs/routing/RouterClient.ts";
 import { RoutesSchema } from "~/routes.ts";
 import { renderMarkdown } from "~/frontend/markdown.ts";
+import { Codec } from "@nomadshiba/codec";
+import { ChatMessageOutput } from "~/backend/handlers/chats/messages/ChatMessageOutput.ts";
 
 const client = RouterClient.create<RoutesSchema>({
     baseUrl: new URL("/", location.origin),
@@ -9,34 +11,34 @@ const client = RouterClient.create<RoutesSchema>({
 });
 
 type Chat = Awaited<ReturnType<typeof client.fetch<"GET /v1/chats/:chatId">>>;
-type ChatMessage = Awaited<ReturnType<typeof client.fetch<"GET /v1/chats/:chatId/messages/:messageId">>>;
-type Provider = Awaited<ReturnType<typeof client.fetch<"GET /v1/providers/:providerId">>>;
-type Model = Awaited<ReturnType<typeof client.fetch<"GET /v1/models/:modelName">>>;
-type Settings = Awaited<ReturnType<typeof client.fetch<"GET /v1/settings">>>;
+type ChatMessage = Codec.InferOutput<typeof ChatMessageOutput>;
+type Provider = Awaited<ReturnType<typeof client.fetch<"GET /v1/providers">>>[number];
+type Model = Awaited<ReturnType<typeof client.fetch<"GET /v1/models">>>[number];
 type Agent = Awaited<ReturnType<typeof client.fetch<"GET /v1/agents">>>[number];
 
-type ChatEvent =
-    | { kind: "user_message"; value: { id: string; content: string } }
-    | { kind: "assistant_start"; value: { id: string } }
-    | { kind: "assistant_text"; value: { id: string; delta: string } }
-    | { kind: "assistant_refusal"; value: { id: string; delta: string } }
+type StreamEvent =
     | {
-        kind: "assistant_tool_call_delta";
-        value: { id: string; index: number; tool_call_id: string; name: string; arguments: string; display: string };
+        type: "messsage";
+        data: { role: "user"; content: string } | { role: "system"; content: string } | {
+            role: "assistant";
+            content?: string | null;
+            refusal?: string | null;
+            tool_calls?: { id: string; type: "function"; function: { name: string; arguments: string } }[];
+        } | { role: "tool"; content: string; tool_call_id: string };
     }
-    | { kind: "assistant_tool_call"; value: { id: string; tool_call_id: string; name: string; arguments: string } }
-    | { kind: "assistant_done"; value: { id: string } }
-    | { kind: "tool_start"; value: { tool_call_id: string; name: string; arguments: string; display: string } }
-    | { kind: "tool_result"; value: { tool_call_id: string; content: string; display: string } }
-    | { kind: "error"; value: { message: string } };
+    | { type: "stream"; data: StreamDelta };
 
-type LiveToolCall = { id: string; name: string; display: string };
+type StreamDelta =
+    | { kind: "text"; value: string }
+    | { kind: "refusal"; value: string }
+    | { kind: "tool_call"; value: { index: number; id?: string; name?: string; arguments?: string } }
+    | { kind: "done"; value: { finish_reason: string | null } };
+
 type LiveEntry =
-    | { kind: "user"; id: string; text: string }
-    | { kind: "assistant"; id: string; text: string }
-    | { kind: "tool_call"; id: string; toolCallId: string; name: string; display: string }
-    | { kind: "tool_result"; id: string; toolCallId: string; name: string; display: string }
-    | { kind: "error"; id: string; text: string };
+    | { kind: "user"; text: string }
+    | { kind: "assistant"; text: string; refusal?: string }
+    | { kind: "tool_call"; name: string; arguments: string }
+    | { kind: "tool_result"; text: string };
 
 const state = {
     chats: [] as Chat[],
@@ -45,7 +47,6 @@ const state = {
     providers: [] as Provider[],
     models: [] as Model[],
     agents: [] as Agent[],
-    settings: null as Settings | null,
     ws: null as WebSocket | null,
     liveEntries: [] as LiveEntry[],
     liveAssistant: null as null | LiveEntry & { kind: "assistant" },
@@ -72,7 +73,12 @@ const messagesEl = $<HTMLDivElement>("#messages");
 
 async function loadChats() {
     state.chats = await client.fetch("GET /v1/chats", { params: { pathname: {}, search: {} } });
+    if (state.currentChat) {
+        const refreshed = state.chats.find((c) => c.id === state.currentChat!.id);
+        if (refreshed) state.currentChat = refreshed;
+    }
     renderChatList();
+    renderTopbar();
 }
 
 async function loadProviders() {
@@ -86,12 +92,7 @@ async function loadAgents() {
     renderAgentSelect();
 }
 
-async function loadSettings() {
-    state.settings = await client.fetch("GET /v1/settings", { params: { pathname: {}, search: {} } });
-}
-
-async function loadModels() {
-    const providerId = state.settings?.last_provider_id;
+async function loadModels(providerId?: string) {
     if (providerId) {
         state.models = await client.fetch("GET /v1/models?provider=:provider", {
             params: { pathname: {}, search: { provider: providerId } },
@@ -108,10 +109,11 @@ async function loadMessages(chatId: string) {
     });
     state.liveEntries = [];
     state.liveAssistant = null;
+    currentToolCalls = [];
     renderMessages();
 }
 
-let wsReconnectTimer: number | undefined;
+let wsReconnectTimer: ReturnType<typeof setTimeout> | undefined;
 let wsReconnectAttempts = 0;
 let wsChatId: string | null = null;
 
@@ -133,22 +135,18 @@ function connectWS(chatId: string) {
 
     ws.onopen = () => {
         wsReconnectAttempts = 0;
-        // Subscribed first — now refresh the full history over HTTP so we don't
-        // miss anything that happened while disconnected.
         loadMessages(chatId).catch((err) => console.error("failed to refresh messages", err));
     };
 
     ws.onmessage = (e) => {
-        const event: ChatEvent = JSON.parse(e.data);
+        const event: StreamEvent = JSON.parse(e.data);
         handleEvent(event);
     };
 
-    ws.onerror = () => {
-        console.error("ws error");
-    };
+    ws.onerror = () => console.error("ws error");
 
     ws.onclose = () => {
-        if (wsChatId !== chatId) return; // superseded by a newer chat selection
+        if (wsChatId !== chatId) return;
         state.ws = null;
         const delay = Math.min(1000 * 2 ** wsReconnectAttempts, 10_000);
         wsReconnectAttempts++;
@@ -158,74 +156,72 @@ function connectWS(chatId: string) {
     state.ws = ws;
 }
 
-function handleEvent(event: ChatEvent) {
-    if (event.kind === "user_message") {
-        state.liveEntries.push({ kind: "user", id: event.value.id, text: event.value.content });
-        renderLive();
-    } else if (event.kind === "assistant_start") {
-        state.liveAssistant = { kind: "assistant", id: event.value.id, text: "" };
-        state.liveEntries.push(state.liveAssistant);
-        renderLive();
-    } else if (event.kind === "assistant_text") {
-        if (state.liveAssistant && state.liveAssistant.id === event.value.id) {
-            state.liveAssistant.text += event.value.delta;
-            renderLive();
-        }
-    } else if (event.kind === "assistant_refusal") {
-        if (state.liveAssistant && state.liveAssistant.id === event.value.id) {
-            state.liveAssistant.text += `[refused: ${event.value.delta}]`;
-            renderLive();
-        }
-    } else if (event.kind === "assistant_tool_call_delta") {
-        const existing = state.liveEntries.find((e): e is LiveEntry & { kind: "tool_call" } =>
-            e.kind === "tool_call" && e.toolCallId === event.value.tool_call_id
-        );
-        if (existing) {
-            existing.name = event.value.name;
-            existing.display = event.value.display;
-            renderLive();
-        } else {
-            state.liveEntries.push({
-                kind: "tool_call",
-                id: event.value.tool_call_id,
-                toolCallId: event.value.tool_call_id,
-                name: event.value.name,
-                display: event.value.display,
+// Tool-call entries for the turn currently in flight, indexed by stream delta
+// index. Only one stream runs per chat at a time, so plain positional
+// tracking (no ids) is enough to correlate deltas with their tool call.
+let currentToolCalls: (LiveEntry & { kind: "tool_call" })[] = [];
+
+function handleEvent(event: StreamEvent) {
+    if (event.type === "messsage") {
+        const msg = event.data;
+        if (msg.role === "user") {
+            state.liveAssistant = null;
+            currentToolCalls = [];
+            state.liveEntries.push({ kind: "user", text: msg.content });
+        } else if (msg.role === "assistant") {
+            ensureLiveAssistant();
+            state.liveAssistant!.text = msg.content ?? "";
+            state.liveAssistant!.refusal = msg.refusal ?? undefined;
+            (msg.tool_calls ?? []).forEach((tc, index) => {
+                let entry = currentToolCalls[index];
+                if (!entry) {
+                    entry = { kind: "tool_call", name: "", arguments: "" };
+                    currentToolCalls[index] = entry;
+                    state.liveEntries.push(entry);
+                }
+                entry.name = tc.function.name;
+                entry.arguments = tc.function.arguments;
             });
-            renderLive();
-        }
-    } else if (event.kind === "tool_start") {
-        const existing = state.liveEntries.find((e): e is LiveEntry & { kind: "tool_call" } =>
-            e.kind === "tool_call" && e.toolCallId === event.value.tool_call_id
-        );
-        if (existing) {
-            existing.display = event.value.display;
-        } else {
-            state.liveEntries.push({
-                kind: "tool_call",
-                id: event.value.tool_call_id,
-                toolCallId: event.value.tool_call_id,
-                name: event.value.name,
-                display: event.value.display,
-            });
+            state.liveAssistant = null;
+        } else if (msg.role === "tool") {
+            state.liveEntries.push({ kind: "tool_result", text: msg.content });
         }
         renderLive();
-    } else if (event.kind === "tool_result") {
-        state.liveEntries.push({
-            kind: "tool_result",
-            id: event.value.tool_call_id,
-            toolCallId: event.value.tool_call_id,
-            name: "tool",
-            display: event.value.display,
-        });
+        return;
+    }
+
+    const delta = event.data;
+    if (delta.kind === "text") {
+        ensureLiveAssistant();
+        state.liveAssistant!.text += delta.value;
         renderLive();
-    } else if (event.kind === "assistant_done") {
+    } else if (delta.kind === "refusal") {
+        ensureLiveAssistant();
+        state.liveAssistant!.refusal = (state.liveAssistant!.refusal ?? "") + delta.value;
+        renderLive();
+    } else if (delta.kind === "tool_call") {
+        const index = delta.value.index;
+        let entry = currentToolCalls[index];
+        if (!entry) {
+            entry = { kind: "tool_call", name: "", arguments: "" };
+            currentToolCalls[index] = entry;
+            state.liveEntries.push(entry);
+        }
+        if (delta.value.name) entry.name = delta.value.name;
+        if (delta.value.arguments) entry.arguments += delta.value.arguments;
+        renderLive();
+    } else if (delta.kind === "done") {
         state.liveAssistant = null;
-        renderLive();
-    } else if (event.kind === "error") {
-        state.liveEntries.push({ kind: "error", id: "error-" + Date.now(), text: event.value.message });
+        currentToolCalls = [];
         renderLive();
     }
+}
+
+function ensureLiveAssistant() {
+    if (state.liveAssistant) return;
+    const entry: LiveEntry & { kind: "assistant" } = { kind: "assistant", text: "" };
+    state.liveEntries.push(entry);
+    state.liveAssistant = entry;
 }
 
 function renderChatList() {
@@ -251,15 +247,9 @@ function renderProviders() {
                 params: { pathname: { providerId: p.id }, search: {} },
             });
             await loadProviders();
-            if (state.settings?.last_provider_id === p.id) {
-                state.settings.last_provider_id = undefined;
-                state.settings.last_model_id = undefined;
-                await client.fetch("PATCH /v1/settings", {
-                    params: { pathname: {}, search: {} },
-                    data: { last_provider_id: null, last_model_id: null },
-                });
-                await loadSettings();
-                await loadModels();
+            if (state.currentChat?.model?.providerId === p.id) {
+                await loadChats();
+                renderTopbar();
             }
         };
         row.appendChild(name);
@@ -270,35 +260,59 @@ function renderProviders() {
 
 function renderProviderSelect() {
     providerSelect.innerHTML = "";
+    if (!state.currentChat) {
+        providerSelect.disabled = true;
+        return;
+    }
+    providerSelect.disabled = false;
     for (const p of state.providers) {
         const opt = el("option") as HTMLOptionElement;
         opt.value = p.id;
         opt.textContent = p.name;
-        if (state.settings?.last_provider_id === p.id) opt.selected = true;
+        if (state.currentChat.model?.providerId === p.id) opt.selected = true;
         providerSelect.appendChild(opt);
     }
 }
 
 function renderAgentSelect() {
     agentSelect.innerHTML = "";
+    if (!state.currentChat) {
+        agentSelect.disabled = true;
+        return;
+    }
+    agentSelect.disabled = false;
     for (const a of state.agents) {
         const opt = el("option") as HTMLOptionElement;
         opt.value = a.name;
         opt.textContent = a.name;
-        if (state.settings?.last_agent === a.name) opt.selected = true;
+        if (state.currentChat.agent === a.name) opt.selected = true;
         agentSelect.appendChild(opt);
     }
 }
 
 function renderModelSelect() {
     modelSelect.innerHTML = "";
+    if (!state.currentChat) {
+        modelSelect.disabled = true;
+        return;
+    }
+    modelSelect.disabled = false;
     for (const m of state.models) {
         const opt = el("option") as HTMLOptionElement;
         opt.value = m.id;
         opt.textContent = m.name;
-        if (state.settings?.last_model_id === m.id) opt.selected = true;
+        if (state.currentChat.model?.name === m.id) opt.selected = true;
         modelSelect.appendChild(opt);
     }
+}
+
+function renderTopbar() {
+    renderAgentSelect();
+    renderProviderSelect();
+    renderModelSelect();
+    const hasChat = Boolean(state.currentChat);
+    msgInput.disabled = !hasChat;
+    sendBtn.disabled = !hasChat;
 }
 
 function renderMessages() {
@@ -329,7 +343,7 @@ function renderLive() {
                 appendBubble("tool_call", `${tc.value.name} ${tc.value.id}`, tc.value.display, true);
             }
         } else if (msg.content.kind === "tool") {
-            appendBubble("tool", `result ${msg.content.value.tool_call_id}`, msg.content.value.display, true);
+            appendBubble("tool", `result ${msg.content.value.tool_call_id}`, msg.content.value.content, true);
         }
     }
 
@@ -337,13 +351,13 @@ function renderLive() {
         if (entry.kind === "user") {
             appendBubble("user", "user", entry.text);
         } else if (entry.kind === "assistant") {
-            appendBubble("assistant", "assistant", entry.text || "...", true);
+            if (entry.text) appendBubble("assistant", "assistant", entry.text, true);
+            if (entry.refusal) appendBubble("assistant", "assistant", `**refused:** ${entry.refusal}`, true);
+            if (!entry.text && !entry.refusal && state.liveAssistant === entry) appendBubble("assistant", "assistant", "...", true);
         } else if (entry.kind === "tool_call") {
-            appendBubble("tool_call", `${entry.name} ${entry.toolCallId}`, entry.display, true);
+            appendBubble("tool_call", entry.name || "tool_call", entry.arguments, true);
         } else if (entry.kind === "tool_result") {
-            appendBubble("tool", `result ${entry.toolCallId}`, entry.display, true);
-        } else if (entry.kind === "error") {
-            appendBubble("error", "error", entry.text, true);
+            appendBubble("tool", "result", entry.text, true);
         }
     }
 
@@ -365,26 +379,29 @@ function appendBubble(cls: string, label: string, content: string, markdown = fa
     messagesEl.appendChild(wrap);
 }
 
-function selectChat(chat: Chat) {
+async function selectChat(chat: Chat) {
     state.currentChat = chat;
     state.messages = [];
     state.liveEntries = [];
     state.liveAssistant = null;
     renderChatList();
+    renderTopbar();
     renderLive();
     connectWS(chat.id);
-    msgInput.disabled = false;
-    sendBtn.disabled = false;
+    await loadModels(chat.model?.providerId);
+    renderModelSelect();
 }
 
 async function createChat() {
     const name = prompt("chat name?");
     if (!name) return;
-    await client.fetch("POST /v1/chats", {
+    const result = await client.fetch("POST /v1/chats", {
         params: { pathname: {}, search: {} },
         data: { name },
     });
     await loadChats();
+    const chat = state.chats.find((c) => c.id === result.id);
+    if (chat) await selectChat(chat);
 }
 
 async function addProvider() {
@@ -400,44 +417,44 @@ async function addProvider() {
     provBase.value = "";
     provKey.value = "";
     await loadProviders();
-    const first = state.providers[state.providers.length - 1];
-    if (first) {
-        providerSelect.value = first.id;
-        await selectProvider(first.id);
-    }
+}
+
+async function patchChat(data: { name?: string; agent?: string; model?: { name: string; providerId: string } }) {
+    if (!state.currentChat) return;
+    await client.fetch("PATCH /v1/chats/:chatId", {
+        params: { pathname: { chatId: state.currentChat.id }, search: {} },
+        data,
+    });
+    await loadChats();
 }
 
 async function selectProvider(id: string) {
-    state.settings!.last_provider_id = id;
-    state.settings!.last_model_id = undefined;
-    await client.fetch("PATCH /v1/settings", {
-        params: { pathname: {}, search: {} },
-        data: { last_provider_id: id, last_model_id: null },
-    });
-    await loadModels();
+    if (!state.currentChat || state.models.length === 0) {
+        await patchChat({ model: { name: "", providerId: id } });
+        await loadModels(id);
+        return;
+    }
+    await patchChat({ model: { name: state.models[0].id, providerId: id } });
+    await loadModels(id);
+    renderModelSelect();
 }
 
 async function selectModel(id: string) {
-    state.settings!.last_model_id = id;
-    await client.fetch("PATCH /v1/settings", {
-        params: { pathname: {}, search: {} },
-        data: { last_model_id: id },
-    });
+    if (!state.currentChat) return;
+    const providerId = state.currentChat.model?.providerId ?? state.providers[0]?.id;
+    if (!providerId) return;
+    await patchChat({ model: { name: id, providerId } });
 }
 
 async function selectAgent(name: string) {
-    state.settings!.last_agent = name;
-    await client.fetch("PATCH /v1/settings", {
-        params: { pathname: {}, search: {} },
-        data: { last_agent: name },
-    });
+    if (!state.currentChat) return;
+    await patchChat({ agent: name });
 }
 
 async function sendMessage() {
     const text = msgInput.value.trim();
     if (!text || !state.currentChat) return;
     msgInput.value = "";
-
     await client.fetch("POST /v1/chats/:chatId/messages", {
         params: { pathname: { chatId: state.currentChat.id }, search: {} },
         data: { content: text },
@@ -460,15 +477,11 @@ agentSelect.addEventListener("change", (e) => {
     selectAgent((e.target as HTMLSelectElement).value);
 });
 
-await loadChats();
 await loadProviders();
 await loadAgents();
-await loadSettings();
-if (!state.settings?.last_provider_id && state.providers.length) {
-    await selectProvider(state.providers[0].id);
+await loadChats();
+if (state.chats.length) {
+    await selectChat(state.chats[0]);
+} else {
+    renderTopbar();
 }
-if (!state.settings?.last_agent && state.agents.length) {
-    await selectAgent(state.agents[0].name);
-    renderAgentSelect();
-}
-await loadModels();

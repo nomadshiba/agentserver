@@ -6,6 +6,11 @@ export const ChatOutput = new StructCodec({
     id: UUID,
     name: Str,
     "root_message_id?": UUID,
+    agent: Str,
+    "model?": new StructCodec({
+        name: Str,
+        providerId: UUID,
+    }),
     created: Timestamp,
     updated: Timestamp,
 });

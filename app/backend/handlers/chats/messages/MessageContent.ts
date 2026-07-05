@@ -21,7 +21,6 @@ export const MessageContentAssistant = new StructCodec({
 export const MessageContentTool = new StructCodec({
     content: Str,
     tool_call_id: Str,
-    display: Str,
 });
 
 export const MessageContent = new UnionCodec({

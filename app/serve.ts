@@ -15,7 +15,6 @@ await import("~/backend/handlers/chats/update.ts");
 await import("~/backend/handlers/chats/delete.ts");
 await import("~/backend/handlers/chats/messages/create.ts");
 await import("~/backend/handlers/chats/messages/many.ts");
-await import("~/backend/handlers/chats/messages/one.ts");
 await import("~/backend/handlers/chats/messages/delete.ts");
 
 const PORT = Number(Deno.env.get("PORT") ?? 8000);
