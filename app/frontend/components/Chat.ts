@@ -1,15 +1,21 @@
-import { Builder, ref, tags, toChild } from "@purifyjs/core";
-import { api, ChatStreamEvent, MessageOutput } from "~/frontend/api.ts";
+import { Builder, ref, sync, tags, toChild } from "@purifyjs/core";
+import { ChatStreamOutput } from "~/backend/handlers/chats/messages/ChatStreamOutput.ts";
+import { api, MessageOutput } from "~/frontend/api.ts";
 import { ChatBox } from "~/frontend/components/ChatBox.ts";
 import { ChatNavigationItem } from "~/frontend/components/ChatNavigation.ts";
+import { Markdown } from "~/frontend/components/Markdown.ts";
+import { ToolCalls } from "~/frontend/components/ToolCalls.ts";
+import { css } from "~/frontend/kit/css.ts";
 import { relativeDate } from "~/frontend/utils/date.ts";
-import { renderMarkdown } from "~/frontend/utils/markdown.ts";
 import { PersistentSocket } from "~/frontend/utils/websocket.ts";
 
+const scroller = document.scrollingElement ?? document.body;
+
 export async function Chat(chatId: string) {
-    const { section, ol, li, article, header, strong, time, p, div } = tags;
+    const { section, ol, li, article, header, strong, time, p, form, button, div } = tags;
     const chat = await api.fetch("GET /v1/chats/:chatId", { params: { pathname: { chatId }, search: {} } });
     const self = section().id("chat").ariaLabel(`Chat Conversation: ${chat.name}`);
+    self.$bind(ChatStyle.useScope());
 
     document.querySelector(`#chat-${chat.id}`)?.replaceWith(toChild(ChatNavigationItem(chat)));
 
@@ -25,8 +31,28 @@ export async function Chat(chatId: string) {
 
     const log = ol().role("log").ariaLabel("Messages");
 
+    const RELATIVE_STEPS = [
+        60 * 60 * 1000,
+        60 * 1000,
+    ];
     const addMessage = (message: MessageOutput) => {
-        const date = new Date(message.created);
+        const relative = sync<string>((set) => {
+            const created = message.created.getTime();
+            let timeout!: number;
+            const update = () => {
+                set(relativeDate(message.created));
+                const delta = Date.now() - created;
+                for (const step of RELATIVE_STEPS) {
+                    if (delta < step) continue;
+                    timeout = setTimeout(update, step);
+                    break;
+                }
+            };
+            update();
+            return () => clearTimeout(timeout);
+        });
+
+        const shouldScroll = message.content.kind === "user" || scroller.scrollHeight - scroller.scrollTop - innerHeight < 100;
 
         const exist = log.$node.querySelector<HTMLLIElement>(`li#chat-message-${message.id}`);
         let item: Builder<HTMLLIElement>;
@@ -40,27 +66,23 @@ export async function Chat(chatId: string) {
         switch (message.content.kind) {
             case "assistant": {
                 item.replaceChildren$(
-                    article().append$(
+                    article({ class: "role-assistant" }).append$(
                         header().append$(
                             strong().textContent(message.content.kind),
-                            time().dateTime(date.toISOString()).textContent(relativeDate(date)),
+                            time().dateTime(message.created.toISOString()).textContent(relative),
                         ),
-                        Array.from(
-                            div({ style: "display:contents" })
-                                .innerHTML(renderMarkdown(message.content.value.content ?? message.content.value.refusal ?? "")).$node
-                                .childNodes,
-                        ),
-                        JSON.stringify(message.content.value.tool_calls),
+                        Markdown(message.content.value.content ?? message.content.value.refusal ?? ""),
+                        ToolCalls(message.content.value.tool_calls),
                     ),
                 );
                 break;
             }
             case "user": {
                 item.replaceChildren$(
-                    article().append$(
+                    article({ class: "role-user" }).append$(
                         header().append$(
                             strong().textContent(message.content.kind),
-                            time().dateTime(date.toISOString()).textContent(relativeDate(date)),
+                            time().dateTime(message.created.toISOString()).textContent(relative),
                         ),
                         p().textContent(message.content.value.content),
                     ),
@@ -69,28 +91,33 @@ export async function Chat(chatId: string) {
             }
             case "system": {
                 item.replaceChildren$(
-                    article().append$(
+                    article({ class: "role-system" }).append$(
                         header().append$(
                             strong().textContent(message.content.kind),
-                            time().dateTime(date.toISOString()).textContent(relativeDate(date)),
+                            time().dateTime(message.created.toISOString()).textContent(relative),
                         ),
-                        div({ style: "display:contents" }).innerHTML(renderMarkdown(message.content.value.content ?? "")),
+                        Markdown(message.content.value.content ?? ""),
                     ),
                 );
                 break;
             }
             case "tool": {
-                item.replaceChildren$(
-                    article().append$(
-                        header().append$(
-                            strong().textContent(message.content.kind),
-                            time().dateTime(date.toISOString()).textContent(relativeDate(date)),
-                        ),
-                        div({ style: "display:contents" }).innerHTML(renderMarkdown(message.content.value.display ?? "")),
-                    ),
-                );
+                const result = toChild(Markdown(message.content.value.display ?? ""));
+
+                const existingResult = log.$node.querySelector(`#tool-result-${message.content.value.tool_call_id}`);
+                if (existingResult) {
+                    existingResult.replaceWith(result);
+                } else {
+                    const existingCall = log.$node.querySelector(`#tool-call-${message.content.value.tool_call_id}`)!;
+                    existingCall.after(result);
+                }
+
                 break;
             }
+        }
+
+        if (shouldScroll) {
+            scroller.scrollTop = scroller.scrollHeight - innerHeight;
         }
     };
 
@@ -103,11 +130,12 @@ export async function Chat(chatId: string) {
                 for (const message of messages) addMessage(message);
             });
         }, { signal: aborter.signal });
-        socket.addEventListener("message", (e) => {
-            const event = JSON.parse(e.data) as ChatStreamEvent;
-            switch (event.type) {
+        socket.addEventListener("message", async (e) => {
+            const blob = e.data as Blob;
+            const [event] = ChatStreamOutput.decode(await blob.bytes());
+            switch (event.kind) {
                 case "message": {
-                    addMessage(event.data);
+                    addMessage(event.value);
                     break;
                 }
             }
@@ -118,10 +146,131 @@ export async function Chat(chatId: string) {
         };
     });
 
+    const content = ref("");
+
     return self.append$(
         log,
-        ChatBox((content) =>
-            api.fetch("POST /v1/chats/:chatId/messages", { params: { pathname: { chatId }, search: {} }, data: { content } })
-        ),
+        form()
+            .append$(
+                ChatBox(content),
+                div({ class: "actions" }).append$(
+                    agent,
+                    " ",
+                    model.derive((model) => `${model?.name}`),
+                    button().type("submit").ariaLabel("Send"),
+                ),
+            )
+            .onsubmit((event) => {
+                event.preventDefault();
+                api.fetch("POST /v1/chats/:chatId/messages", {
+                    params: { pathname: { chatId }, search: {} },
+                    data: { content: content.get() },
+                });
+                content.set("");
+            }),
     );
 }
+
+const ChatStyle = css`
+    :scope {
+        display: block grid;
+        gap: var(--layout-gap);
+
+        grid-template-columns: minmax(0, 60em);
+        justify-content: center;
+    }
+
+    ol[role="log"] {
+        display: block grid;
+        gap: 2.5em;
+        list-style: none;
+        min-block-size: 100lvb;
+    }
+
+    ol[role="log"] li {
+        display: contents;
+    }
+
+    ol[role="log"] article {
+        display: block grid;
+        gap: 0.5em;
+        border-radius: var(--layout-radius);
+        padding: 0.5em;
+        max-inline-size: 98%;
+
+        header {
+            display: block grid;
+            grid-auto-flow: column;
+            gap: 0.5em;
+            justify-content: start;
+            align-items: center;
+
+            time {
+                display: block flow;
+                font-size: 0.6em;
+                opacity: 0.5;
+                text-box-trim: trim-both;
+            }
+
+            strong {
+                display: block flow;
+                font-size: 0.85em;
+                opacity: 0.85;
+                text-box-edge: cap alphabetic;
+            }
+        }
+
+        &.role-user {
+            justify-self: end;
+            background-color: var(--base);
+            color: var(--pop);
+
+            p {
+                white-space: pre-wrap;
+                overflow-wrap: break-word;
+                overflow: hidden;
+            }
+        }
+    }
+
+    form {
+        display: block grid;
+        position: sticky;
+        inset-block-end: var(--layout-gap);
+        background-color: var(--base);
+        border-radius: var(--layout-radius);
+        padding-inline: 0.5em;
+        padding-block: 1em;
+        box-shadow: 0 0 10px 5px var(--layout-base);
+
+        gap: 0.5em;
+        align-items: center;
+    }
+
+    form .actions {
+        display: block grid;
+        grid-auto-flow: column;
+        justify-content: end;
+    }
+
+    form .actions button {
+        all: unset;
+        cursor: pointer;
+        display: block grid;
+        aspect-ratio: 1;
+        color: var(--accent-pop);
+        background-color: var(--accent-base);
+        border-radius: 50%;
+        padding: 0.25em;
+        inline-size: 1.25em;
+
+        &::before {
+            content: "";
+            display: block flow;
+            background-color: currentcolor;
+            mask-image: url("/icons/send.svg");
+            mask-size: contain;
+            mask-position: center;
+        }
+    }
+`;

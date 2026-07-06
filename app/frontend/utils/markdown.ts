@@ -1,5 +1,3 @@
-import { css } from "~/frontend/kit/css.ts";
-
 const ESC: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ESC[c]);
 
@@ -374,66 +372,3 @@ export function renderMarkdown(md: string): string {
 
     return html;
 }
-
-// ---------------------------------------------------------------------------
-// Optional base styles (tok-* classes + tables). Use or ignore.
-// ---------------------------------------------------------------------------
-
-export const MarkdownSheet = css`
-    pre {
-        background: #1e1e2e;
-        color: #cdd6f4;
-        padding: 0.75em 1em;
-        border-radius: 8px;
-        overflow-x: auto;
-    }
-    pre code {
-        background: none;
-        padding: 0;
-    }
-    code {
-        background: #3132454d;
-        padding: 0.1em 0.35em;
-        border-radius: 4px;
-        font-family: monospace;
-    }
-    table {
-        border-collapse: collapse;
-        margin: 0.5em 0;
-    }
-    th, td {
-        border: 1px solid #4a4a5a;
-        padding: 0.3em 0.7em;
-    }
-    blockquote {
-        border-left: 3px solid #7aa2f7;
-        margin: 0.5em 0;
-        padding: 0.1em 1em;
-        opacity: 0.85;
-    }
-    .tok-kw {
-        color: #cba6f7;
-    }
-    .tok-str {
-        color: #a6e3a1;
-    }
-    .tok-num {
-        color: #fab387;
-    }
-    .tok-lit {
-        color: #f38ba8;
-    }
-    .tok-com {
-        color: #6c7086;
-        font-style: italic;
-    }
-    .tok-type {
-        color: #f9e2af;
-    }
-    .tok-fn {
-        color: #89b4fa;
-    }
-    .tok-key {
-        color: #89dceb;
-    }
-`;

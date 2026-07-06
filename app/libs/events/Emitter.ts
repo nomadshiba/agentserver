@@ -13,6 +13,12 @@ export class Emitter<T> {
     }
 
     emit(data: T) {
-        for (const subscriber of this.subscribers) subscriber(data);
+        for (const subscriber of this.subscribers) {
+            try {
+                subscriber(data);
+            } catch (reason) {
+                console.error(reason);
+            }
+        }
     }
 }

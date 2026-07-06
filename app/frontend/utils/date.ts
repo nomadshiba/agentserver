@@ -1,3 +1,5 @@
+import { sync } from "@purifyjs/core";
+
 const units = [
     ["year", 1000 * 60 * 60 * 24 * 365],
     ["month", 1000 * 60 * 60 * 24 * 30],
@@ -22,3 +24,9 @@ export function relativeDate(to: Date, from: Date = new Date()) {
 
     return rtf.format(0, "second"); // fallback: "now"
 }
+
+export const now_second = sync<number>((set) => {
+    set(Date.now());
+    const interval = setInterval(() => set(Date.now()), 1000);
+    return () => clearInterval(interval);
+});

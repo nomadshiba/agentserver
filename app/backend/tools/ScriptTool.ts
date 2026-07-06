@@ -228,7 +228,7 @@ export class ScriptTool extends Tool {
         const usePart = parsed.use?.length ? `\n\n**use:** \`${parsed.use.join("`, `")}\`` : "";
         const preloadPart = parsed.preload?.length ? `\n\n**preload:** \`${parsed.preload.join("`, `")}\`` : "";
         const timeoutPart = parsed.timeout ? `\n\n**timeout:** ${parsed.timeout}s` : "";
-        return `### script\n\n${CODE_BLOCK}typescript\n${parsed.code}\n${CODE_BLOCK}${usePart}${preloadPart}${timeoutPart}`;
+        return `**code:**\n${CODE_BLOCK}typescript\n${parsed.code}\n${CODE_BLOCK}${usePart}${preloadPart}${timeoutPart}`;
     }
 
     override transformResult(result: ProviderToolMessage): string {

@@ -1,7 +1,8 @@
+import { serveDir } from "@std/http";
 import { handleChatStream } from "~/backend/handlers/chats/messages/stream.ts";
-import { router } from "~/router.ts";
-import appJs from "~/frontend/dist/app.js" with { type: "text" };
 import appHtml from "~/frontend/app.html" with { type: "text" };
+import appJs from "~/frontend/dist/app.js" with { type: "text" };
+import { router } from "~/router.ts";
 
 await import("~/backend/database/migrate.ts");
 await import("~/backend/handlers/agents/many.ts");
@@ -35,6 +36,16 @@ Deno.serve({
 
     if (url.pathname === "/") {
         return new Response(appHtmlTransformed, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+    }
+
+    if (url.pathname.startsWith("/icons/")) {
+        return serveDir(request, {
+            showIndex: false,
+            showDirListing: false,
+            showDotfiles: false,
+            fsRoot: new URL("./frontend/icons/", import.meta.url).pathname,
+            urlRoot: "icons",
+        });
     }
 
     const webSocketMatch = url.pathname.match(CHAT_WEBSOCKET_REGEX);

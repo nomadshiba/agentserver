@@ -1,23 +1,17 @@
-import { v7 } from "@std/uuid";
 import { Codec } from "@nomadshiba/codec";
+import { v7 } from "@std/uuid";
+import { jsonArrayFrom, jsonObjectFrom } from "kysely/helpers/sqlite";
 import { Agent } from "~/backend/agents/Agent.ts";
 import { agents, agentsByName } from "~/backend/agents/mod.ts";
 import { runAgent } from "~/backend/chats/run.ts";
 import { db } from "~/backend/database/client.ts";
-import {
-    ProviderAssistantMessageStream,
-    ProviderChatMessage,
-    ProviderClient,
-    ProviderToolCall,
-} from "~/backend/providers/ProviderClient.ts";
+import { ChatStreamOutput } from "~/backend/handlers/chats/messages/ChatStreamOutput.ts";
+import { renderToolCall, renderToolResult } from "~/backend/handlers/chats/messages/utils.ts";
+import { ProviderChatMessage, ProviderClient, ProviderToolCall } from "~/backend/providers/ProviderClient.ts";
 import { WeakRefMap } from "~/libs/collections/WeakRefMap.ts";
 import { Emitter } from "~/libs/events/Emitter.ts";
-import { ChatMessageOutput } from "~/backend/handlers/chats/messages/ChatMessageOutput.ts";
-import { renderToolCall, renderToolResult } from "~/backend/handlers/chats/messages/utils.ts";
 
-export type ChatEvent =
-    | { type: "message"; data: Codec.InferInput<typeof ChatMessageOutput> }
-    | { type: "stream"; data: ProviderAssistantMessageStream };
+type ChatEvent = Codec.InferInput<typeof ChatStreamOutput>;
 
 export class ChatClient {
     private constructor(
@@ -75,9 +69,40 @@ export class ChatClient {
         const chat = await db.selectFrom("chat").where("id", "=", chatId).selectAll().executeTakeFirst();
         const agent = (chat?.agent ? agentsByName.get(chat?.agent) : undefined) ?? agents[0];
         const prefixMessages: ProviderChatMessage[] = agent ? [{ role: "system", content: agent.prompt }] : [];
-        const oldMessages = await loadFromDB(chatId);
+        const oldMessages: ProviderChatMessage[] = [];
         const newMessages: ProviderChatMessage[] = [];
         const suffixMessages: ProviderChatMessage[] = [];
+
+        const rows = await messagesFromDatabase(chatId);
+        for (const row of rows) {
+            if (row.RoleSystem) {
+                oldMessages.push({ role: "system", content: row.RoleSystem.content });
+            } else if (row.RoleUser) {
+                oldMessages.push({ role: "user", content: row.RoleUser.content });
+            } else if (row.RoleAssistant) {
+                const tool_calls: ProviderToolCall[] = [];
+                for (const call of row.RoleAssistant.ToolCalls) {
+                    if (!call.TypeFunction) continue;
+                    tool_calls.push({
+                        id: call.id,
+                        type: "function",
+                        function: { name: call.TypeFunction.name, arguments: call.TypeFunction.arguments },
+                    });
+                }
+                oldMessages.push({
+                    role: "assistant",
+                    content: row.RoleAssistant.content,
+                    refusal: row.RoleAssistant.refusal,
+                    tool_calls: tool_calls,
+                });
+            } else if (row.RoleTool) {
+                oldMessages.push({
+                    role: "tool",
+                    content: row.RoleTool.content,
+                    tool_call_id: row.RoleTool.tool_call_id,
+                });
+            }
+        }
 
         const providerInfo = await db.selectFrom("provider").orderBy("created", "desc")
             .selectAll()
@@ -124,7 +149,7 @@ export class ChatClient {
             .values({ id, chat_id: this.id, role: message.role, created: now })
             .execute();
 
-        let content: (ChatEvent & { type: "message" })["data"]["content"];
+        let content: (ChatEvent & { kind: "message" })["value"]["content"];
         if (role === "assistant") {
             await tx.insertInto("chat_message_role_assistant")
                 .values({ id, content: message.content ?? null, refusal: message.refusal ?? null })
@@ -161,7 +186,7 @@ export class ChatClient {
                 .execute();
             content = {
                 kind: "tool",
-                value: { content: message.content, tool_call_id: message.tool_call_id, display: await renderToolResult(message) },
+                value: { content: message.content, tool_call_id: message.tool_call_id, display: await renderToolResult(message, tx) },
             };
         } else if (role === "system") {
             await tx.insertInto("chat_message_role_system").values({ id, content: message.content }).execute();
@@ -174,10 +199,7 @@ export class ChatClient {
         }
 
         this.newMessages.push(message);
-        this.emitter.emit({
-            type: "message",
-            data: { id, content, created: now },
-        });
+        this.emitter.emit({ kind: "message", value: { id, content, created: now } });
 
         await tx.commit().execute();
 
@@ -185,95 +207,77 @@ export class ChatClient {
             runAgent(this).catch((reason) => {
                 console.error("agent run failed:", reason);
                 this.emitter.emit({
-                    type: "stream",
-                    data: { kind: "done", value: { finish_reason: `Error: ${String(reason)}` } },
+                    kind: "stream",
+                    value: { kind: "done", value: { finish_reason: `Error: ${String(reason)}` } },
                 });
             });
         }
     }
 }
 
-async function loadFromDB(chatId: string): Promise<ProviderChatMessage[]> {
+export async function messagesFromDatabase(chatId: string) {
     const rows = await db.selectFrom("chat_message")
         .where("chat_message.chat_id", "=", chatId)
         .orderBy("chat_message.created", "asc")
         .select([
             "chat_message.id",
+            "chat_message.chat_id",
             "chat_message.role",
             "chat_message.created",
         ])
         .select((eb) => [
-            eb.selectFrom("chat_message_role_system")
-                .whereRef("chat_message_role_system.id", "=", "chat_message.id")
-                .select("chat_message_role_system.content")
-                .as("system_content"),
-            eb.selectFrom("chat_message_role_user")
-                .whereRef("chat_message_role_user.id", "=", "chat_message.id")
-                .select("chat_message_role_user.content")
-                .as("user_content"),
-            eb.selectFrom("chat_message_role_assistant")
-                .whereRef("chat_message_role_assistant.id", "=", "chat_message.id")
-                .select("chat_message_role_assistant.content")
-                .as("assistant_content"),
-            eb.selectFrom("chat_message_role_assistant")
-                .whereRef("chat_message_role_assistant.id", "=", "chat_message.id")
-                .select("chat_message_role_assistant.refusal")
-                .as("assistant_refusal"),
-            eb.selectFrom("chat_message_role_tool")
-                .whereRef("chat_message_role_tool.id", "=", "chat_message.id")
-                .select("chat_message_role_tool.content")
-                .as("tool_content"),
-            eb.selectFrom("chat_message_role_tool")
-                .whereRef("chat_message_role_tool.id", "=", "chat_message.id")
-                .select("chat_message_role_tool.tool_call_id")
-                .as("tool_tool_call_id"),
+            jsonObjectFrom(
+                eb.selectFrom("chat_message_role_system")
+                    .whereRef("chat_message_role_system.id", "=", "chat_message.id")
+                    .select("chat_message_role_system.content"),
+            ).as("RoleSystem"),
+            jsonObjectFrom(
+                eb.selectFrom("chat_message_role_user")
+                    .whereRef("chat_message_role_user.id", "=", "chat_message.id")
+                    .select("chat_message_role_user.content"),
+            ).as("RoleUser"),
+            jsonObjectFrom(
+                eb.selectFrom("chat_message_role_assistant")
+                    .whereRef("chat_message_role_assistant.id", "=", "chat_message.id")
+                    .select([
+                        "chat_message_role_assistant.content",
+                        "chat_message_role_assistant.refusal",
+                    ])
+                    .select((eb) => [
+                        jsonArrayFrom(
+                            eb.selectFrom("chat_message_role_assistant_toolcall")
+                                .whereRef("chat_message_role_assistant_toolcall.chat_message_id", "=", "chat_message.id")
+                                .select([
+                                    "chat_message_role_assistant_toolcall.id",
+                                    "chat_message_role_assistant_toolcall.type",
+                                ])
+                                .select((eb) =>
+                                    jsonObjectFrom(
+                                        eb.selectFrom("chat_message_role_assistant_toolcall_type_function")
+                                            .whereRef(
+                                                "chat_message_role_assistant_toolcall_type_function.id",
+                                                "=",
+                                                "chat_message_role_assistant_toolcall.id",
+                                            )
+                                            .select([
+                                                "chat_message_role_assistant_toolcall_type_function.name",
+                                                "chat_message_role_assistant_toolcall_type_function.arguments",
+                                            ]),
+                                    ).as("TypeFunction")
+                                ),
+                        ).as("ToolCalls"),
+                    ]),
+            ).as("RoleAssistant"),
+            jsonObjectFrom(
+                eb.selectFrom("chat_message_role_tool")
+                    .whereRef("chat_message_role_tool.id", "=", "chat_message.id")
+                    .select([
+                        "chat_message_role_tool.content",
+                        "chat_message_role_tool.tool_call_id",
+                    ]),
+            ).as("RoleTool"),
         ])
         .execute();
 
-    const out: ProviderChatMessage[] = [];
-    for (const row of rows) {
-        if (row.role === "system") {
-            out.push({ role: "system", content: row.system_content! });
-        } else if (row.role === "user") {
-            out.push({ role: "user", content: row.user_content! });
-        } else if (row.role === "assistant") {
-            const toolCallRows = await db.selectFrom("chat_message_role_assistant_toolcall")
-                .where("chat_message_role_assistant_toolcall.chat_message_id", "=", row.id)
-                .select([
-                    "chat_message_role_assistant_toolcall.id",
-                    "chat_message_role_assistant_toolcall.type",
-                ])
-                .execute();
-            const tool_calls: ProviderToolCall[] = [];
-            for (const tc of toolCallRows) {
-                if (tc.type !== "function") continue;
-                const fn = await db.selectFrom("chat_message_role_assistant_toolcall_type_function")
-                    .where("chat_message_role_assistant_toolcall_type_function.id", "=", tc.id)
-                    .select([
-                        "chat_message_role_assistant_toolcall_type_function.name",
-                        "chat_message_role_assistant_toolcall_type_function.arguments",
-                    ])
-                    .executeTakeFirst();
-                if (!fn) continue;
-                tool_calls.push({
-                    id: tc.id,
-                    type: "function",
-                    function: { name: fn.name, arguments: fn.arguments },
-                });
-            }
-            out.push({
-                role: "assistant",
-                content: row.assistant_content ?? null,
-                refusal: row.assistant_refusal ?? undefined,
-                tool_calls: tool_calls.length ? tool_calls : undefined,
-            });
-        } else if (row.role === "tool") {
-            out.push({
-                role: "tool",
-                content: row.tool_content!,
-                tool_call_id: row.tool_tool_call_id!,
-            });
-        }
-    }
-    return out;
+    return rows;
 }

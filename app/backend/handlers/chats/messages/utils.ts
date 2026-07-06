@@ -1,6 +1,7 @@
+import { Kysely, Transaction } from "kysely";
+import { DB } from "~/backend/database/generated/types.ts";
 import { ProviderToolCall, ProviderToolMessage } from "~/backend/providers/ProviderClient.ts";
 import { toolsByName } from "~/backend/tools/mod.ts";
-import { db } from "~/backend/database/client.ts";
 
 export function renderToolCall(call: ProviderToolCall): string {
     const tool = toolsByName.get(call.function.name);
@@ -8,15 +9,15 @@ export function renderToolCall(call: ProviderToolCall): string {
     return `### ${call.function.name}\n\n\`\`\`\n${call.function.arguments}\n\`\`\``;
 }
 
-export async function renderToolResult(result: ProviderToolMessage): Promise<string> {
-    const name = await toolNameFromCallId(result.tool_call_id);
+export async function renderToolResult(result: ProviderToolMessage, tx: Transaction<DB> | Kysely<DB>): Promise<string> {
+    const name = await toolNameFromCallId(result.tool_call_id, tx);
     const tool = toolsByName.get(name);
     if (tool) return tool.transformResult(result);
     return `### ${name} result\n\n\`\`\`\n${result.content}\n\`\`\``;
 }
 
-async function toolNameFromCallId(callId: string): Promise<string> {
-    const tool = await db.selectFrom("chat_message_role_assistant_toolcall_type_function")
+async function toolNameFromCallId(callId: string, tx: Transaction<DB> | Kysely<DB>): Promise<string> {
+    const tool = await tx.selectFrom("chat_message_role_assistant_toolcall_type_function")
         .where("id", "=", callId)
         .select("name")
         .executeTakeFirst();

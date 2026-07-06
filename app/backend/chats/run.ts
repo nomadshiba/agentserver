@@ -7,18 +7,18 @@ import {
     ProviderToolMessage,
 } from "~/backend/providers/ProviderClient.ts";
 
-function transformMessage<T extends ProviderChatMessage>(message: T): ProviderChatMessage & { role: T["role"] } {
+function transformMessage(message: ProviderChatMessage): ProviderChatMessage {
     if (message.role === "tool") {
         return {
             role: "tool",
             tool_call_id: message.tool_call_id,
-            content: `[tool_call_id: ${message.tool_call_id}]\n${message.content}`,
+            content: `[tool_call_id:${message.tool_call_id}]\n${message.content}`,
         };
     }
     return message;
 }
 
-const MAX_TOOL_ROUNDS = 16;
+const MAX_TOOL_ROUNDS = 100;
 
 export async function runAgent(chat: ChatClient): Promise<void> {
     const { model } = chat;
@@ -29,7 +29,7 @@ export async function runAgent(chat: ChatClient): Promise<void> {
     const toolsByName = new Map(tools.map((t) => [t.definition.function.name, t] as const));
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-        chat.emitter.emit({ type: "stream", data: { kind: "text", value: "" } });
+        chat.emitter.emit({ kind: "stream", value: { kind: "text", value: "" } });
 
         let textBuffer = "";
         let refusalBuffer = "";
@@ -45,10 +45,10 @@ export async function runAgent(chat: ChatClient): Promise<void> {
             ) {
                 if (delta.kind === "text") {
                     textBuffer += delta.value;
-                    chat.emitter.emit({ type: "stream", data: { kind: "text", value: delta.value } });
+                    chat.emitter.emit({ kind: "stream", value: { kind: "text", value: delta.value } });
                 } else if (delta.kind === "refusal") {
                     refusalBuffer += delta.value;
-                    chat.emitter.emit({ type: "stream", data: { kind: "refusal", value: delta.value } });
+                    chat.emitter.emit({ kind: "stream", value: { kind: "refusal", value: delta.value } });
                 } else if (delta.kind === "tool_call") {
                     const existing = toolCallBuffers.get(delta.value.index) ??
                         { id: delta.value.id ?? "", name: delta.value.name ?? "", arguments: "" };
@@ -57,8 +57,8 @@ export async function runAgent(chat: ChatClient): Promise<void> {
                     if (delta.value.arguments) existing.arguments += delta.value.arguments;
                     toolCallBuffers.set(delta.value.index, existing);
                     chat.emitter.emit({
-                        type: "stream",
-                        data: {
+                        kind: "stream",
+                        value: {
                             kind: "tool_call",
                             value: {
                                 index: delta.value.index,
@@ -73,8 +73,8 @@ export async function runAgent(chat: ChatClient): Promise<void> {
         } catch (reason) {
             console.error(reason);
             chat.emitter.emit({
-                type: "stream",
-                data: { kind: "done", value: { finish_reason: `Error: ${String(reason)}` } },
+                kind: "stream",
+                value: { kind: "done", value: { finish_reason: `Error: ${String(reason)}` } },
             });
             return;
         }
@@ -90,9 +90,8 @@ export async function runAgent(chat: ChatClient): Promise<void> {
             tool_calls: toolCalls.length ? toolCalls : undefined,
         };
 
+        chat.emitter.emit({ kind: "stream", value: { kind: "done", value: { finish_reason: null } } });
         await chat.pushMessage(reply);
-        chat.emitter.emit({ type: "stream", data: { kind: "done", value: { finish_reason: null } } });
-
         if (!toolCalls.length) break;
 
         for (const call of toolCalls) {
