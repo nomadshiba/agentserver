@@ -54,23 +54,43 @@ const AppStyle = css`
 
 const GlobalStyle = css`
     :root {
+        /* Core palette */
         --base: hsl(240, 12%, 11%);
         --pop: hsl(0, 0%, 96%);
         --accent-base: hsl(240, 50%, 50%);
         --accent-pop: hsl(240, 50%, 98%);
 
-        --layout-base: hsl(240, 12%, 12%);
-        --layout-gap: 0.5em;
-        --layout-radius: 0.75em;
+        /* Foreground scale, derived from --pop so contrast stays predictable
+        against --base (16:1). Use these instead of ad-hoc opacity. */
+        --muted: color-mix(in srgb, var(--pop), transparent 35%); /* ~7.4:1 on base, secondary text */
+        --subtle: color-mix(in srgb, var(--pop), transparent 45%); /* ~5.7:1 on base, meta/timestamps */
+        --faint: color-mix(in srgb, var(--pop), transparent 88%); /* decorative only, not text */
 
-        --spacing: 0.5em;
-        --radius: 0.25em;
+        /* Surfaces & structure */
+        --layout-base: hsl(240, 12%, 12%);
+        --layout-gap: 0.625em;
+        --layout-radius: 0.75em;
+        --surface-hover: color-mix(in srgb, var(--base), var(--pop) 8%);
+        --surface-hover-strong: color-mix(in srgb, var(--base), var(--pop) 14%);
+        --border: color-mix(in srgb, var(--pop), transparent 88%);
+
+        --radius: 0.35em;
+
+        /* Type scale (em-relative so it composes with component font-size) */
+        --text-xs: 0.75em;
+        --text-sm: 0.8125em;
+        --text-md: 0.875em;
+        --text-lg: 1.125em;
+
+        --weight-regular: 400;
+        --weight-medium: 600;
+        --weight-bold: 700;
 
         accent-color: var(--accent-base);
         /* font-family: system-ui; */
         font-family: monospace;
         font-size: 1rem;
-        line-height: 1.25;
+        line-height: 1.55;
     }
 
     /* layout default not article/document, put articles/documents in shadow dom */
@@ -86,8 +106,6 @@ const GlobalStyle = css`
 
     dialog:where([open]) {
         all: unset;
-        display: block grid;
-        align-content: start;
         position: fixed;
         inset-block: 0;
         inset-inline-end: 0;

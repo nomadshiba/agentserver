@@ -183,7 +183,7 @@ const ChatStyle = css`
 
     ol[role="log"] {
         display: block grid;
-        gap: 2.5em;
+        gap: 2em;
         list-style: none;
         min-block-size: 100lvb;
     }
@@ -194,28 +194,31 @@ const ChatStyle = css`
 
     ol[role="log"] article {
         display: block grid;
-        gap: 0.5em;
+        gap: 0.6em;
         border-radius: var(--layout-radius);
-        padding: 0.5em;
+        padding: 0.75em 1em;
         max-inline-size: 98%;
 
         header {
             display: block grid;
             grid-auto-flow: column;
-            gap: 0.5em;
+            gap: 0.6em;
             justify-content: start;
-            align-items: center;
+            align-items: baseline;
 
             time {
                 display: block flow;
-                font-size: 0.6em;
-                opacity: 0.5;
+                font-size: var(--text-xs);
+                color: var(--subtle);
             }
 
             strong {
                 display: block flow;
-                font-size: 0.85em;
-                opacity: 0.85;
+                font-size: var(--text-sm);
+                font-weight: var(--weight-medium);
+                color: var(--muted);
+                text-transform: capitalize;
+                letter-spacing: 0.02em;
             }
         }
 
@@ -238,17 +241,16 @@ const ChatStyle = css`
         inset-block-end: var(--layout-gap);
         background-color: var(--base);
         border-radius: var(--layout-radius);
-        padding-inline: 0.5em;
-        padding-block: 1em;
+        padding: 0.85em 0.9em;
         box-shadow: 0 0 10px 5px var(--layout-base);
 
-        gap: 1em;
+        gap: 0.85em;
         align-items: center;
     }
 
     form menu {
         display: block grid;
-        gap: 0.5em;
+        gap: 0.6em;
         align-items: center;
         list-style: none;
         padding: 0;
@@ -264,8 +266,17 @@ const ChatStyle = css`
         color: var(--accent-pop);
         background-color: var(--accent-base);
         border-radius: 50%;
-        padding: 0.25em;
-        inline-size: 1.75em;
+        padding: 0.3em;
+        inline-size: 1.85em;
+        transition: background-color 0.15s ease, transform 0.1s ease;
+
+        &:hover {
+            background-color: color-mix(in srgb, var(--accent-base), white 10%);
+        }
+
+        &:active {
+            transform: scale(0.94);
+        }
 
         &::before {
             content: "";

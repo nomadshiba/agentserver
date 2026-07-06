@@ -119,24 +119,26 @@ const ModelPickerStyle = css`
         cursor: pointer;
         display: block grid;
         grid-auto-flow: column;
-        gap: 0.35em;
+        gap: 0.4em;
         align-items: baseline;
-        padding-inline: 0.65em;
-        padding-block: 0.4em;
+        padding-inline: 0.75em;
+        padding-block: 0.45em;
         border-radius: 999px;
-        background-color: color-mix(in srgb, var(--base), var(--pop) 8%);
+        background-color: var(--surface-hover);
+        transition: background-color 0.12s ease;
 
         small {
-            opacity: 0.5;
-            font-size: 0.75em;
+            color: var(--subtle);
+            font-size: var(--text-xs);
         }
 
         strong {
-            font-size: 0.85em;
+            font-size: var(--text-sm);
+            font-weight: var(--weight-medium);
         }
 
         &:hover {
-            background-color: color-mix(in srgb, var(--base), var(--pop) 14%);
+            background-color: var(--surface-hover-strong);
         }
     }
 `;
@@ -144,11 +146,12 @@ const ModelPickerStyle = css`
 const ModelModalStyle = css`
     :scope[open] {
         display: block grid;
+        align-content: start;
     }
 
     header {
         display: block grid;
-        gap: 0.5em;
+        gap: 0.6em;
         padding: 1em;
 
         position: sticky;
@@ -158,6 +161,8 @@ const ModelModalStyle = css`
 
         strong {
             grid-column: 1 / -1;
+            font-size: var(--text-lg);
+            font-weight: var(--weight-medium);
         }
     }
 
@@ -171,13 +176,13 @@ const ModelModalStyle = css`
     header search input {
         all: unset;
         display: block flow;
-        padding-inline: 0.65em;
-        padding-block: 0.45em;
+        padding-inline: 0.75em;
+        padding-block: 0.5em;
         border-radius: var(--radius);
         background-color: color-mix(in srgb, var(--base), var(--pop) 6%);
 
         &::placeholder {
-            opacity: 0.5;
+            color: var(--subtle);
         }
 
         &:focus-visible {
@@ -215,9 +220,9 @@ const ModelModalStyle = css`
 
     ul {
         display: block grid;
-        gap: 0.35em;
+        gap: 0.4em;
         list-style: none;
-        padding-inline: 1em;
+        padding: 0.25em 1em 1em;
     }
 
     ul li {
@@ -228,29 +233,39 @@ const ModelModalStyle = css`
         all: unset;
         cursor: pointer;
         display: block grid;
-        gap: 0.15em;
-        padding-inline: 0.65em;
-        padding-block: 0.5em;
+        gap: 0.2em;
+        padding-inline: 0.75em;
+        padding-block: 0.55em;
         border-radius: var(--radius);
+        transition: background-color 0.12s ease;
+
+        strong {
+            font-weight: var(--weight-medium);
+        }
 
         small {
-            opacity: 0.6;
-            font-size: 0.8em;
+            color: var(--muted);
+            font-size: var(--text-sm);
         }
 
         &:hover {
-            background-color: color-mix(in srgb, var(--base), var(--pop) 8%);
+            background-color: var(--surface-hover);
         }
 
         &[aria-current="true"] {
             background-color: var(--accent-base);
             color: var(--accent-pop);
+
+            small {
+                color: color-mix(in srgb, var(--accent-pop), transparent 25%);
+            }
         }
     }
 
     .hint {
-        opacity: 0.6;
-        font-size: 0.9em;
+        color: var(--muted);
+        font-size: var(--text-md);
+        padding-block: 0.5em;
     }
 
     @keyframes model-picker-spin {

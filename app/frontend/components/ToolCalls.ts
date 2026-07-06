@@ -25,6 +25,7 @@ export function ToolCalls(calls: ToolCallOutput[]) {
 const ToolCallsSheet = css`
     :scope {
         display: block grid;
+        gap: 0.4em;
         list-style: none;
     }
 
@@ -35,5 +36,18 @@ const ToolCallsSheet = css`
     button {
         all: unset;
         cursor: pointer;
+        display: inline-block;
+        padding-inline: 0.6em;
+        padding-block: 0.3em;
+        border-radius: var(--radius);
+        font-size: var(--text-sm);
+        font-weight: var(--weight-medium);
+        color: var(--muted);
+        background-color: var(--surface-hover);
+        transition: background-color 0.12s ease;
+
+        &:hover {
+            background-color: var(--surface-hover-strong);
+        }
     }
 `;

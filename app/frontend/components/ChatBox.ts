@@ -53,8 +53,13 @@ const ChatBoxSheet = css`
         background-color: transparent;
         border: none;
         font: inherit;
+        line-height: 1.45;
         color: inherit;
         min-block-size: 2em;
+
+        &::placeholder {
+            color: var(--subtle);
+        }
 
         &:focus-visible {
             outline: none;
