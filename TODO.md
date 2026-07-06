@@ -1,6 +1,6 @@
 - [ ] Terminate or continue script tool options for agent.
 - [ ] Async tools
-- [ ] script can call other tools
+- [+] script can call other tools
 - [ ] subagent task tool
 - [ ] remote tools (browser fs api, and remote terminal)
 - [ ] chat history query tool

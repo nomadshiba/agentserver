@@ -43,6 +43,10 @@ export class ScriptTool extends Tool {
                     `then inside the worker you must access it as \`e.data["call_abc123"].notes\` — \`e.data.notes\` will be undefined. ` +
                     `If \`use\` is empty/omitted, \`e.data\` is just \`{}\`.`,
 
+                    `You can call any of your tools (including \`script\` itself, e.g. for nested/recursive runs) from inside the worker: they're exposed on the global \`tools\` object as async functions, e.g. \`const result = await tools.someToolName(args)\`. ` +
+                    `\`args\` is whatever object that tool's own parameters schema expects (same schema you already see for it as a top-level tool). Each call returns a Promise that resolves with the tool's result (JSON-parsed if possible, otherwise the raw string) or rejects with an Error if the tool call fails. ` +
+                    `These calls run for real (against the live chat), count toward this worker's own \`timeout\`, and don't show up as separate messages in the conversation — only this script's own final posted result does. \`tools\` is a reserved global name, don't shadow it.`,
+
                     this.permissions.import && [
                         `If your code imports remote modules, list those exact specifiers in \`preload\` — they'll be fetched/cached first and that time does NOT count against \`timeout\`, only the worker's own startup+execution does.`,
                         ``,
@@ -63,6 +67,7 @@ export class ScriptTool extends Tool {
                                 `TypeScript code to run in the worker. Use \`self.onmessage = (e) => {...}\` and call \`self.postMessage(result)\` to return.`,
                                 `\`e.data\` is an object mapping each requested tool_call_id (from \`use\`) to its result (pre-parsed if JSON) — access as \`e.data["<tool_call_id>"]\`, never assume fields are merged into \`e.data\` directly.`,
                                 `Inline any other values directly in the code.`,
+                                `Call your other tools with \`await tools.<toolName>(args)\` (returns a Promise). \`tools\` is a reserved global name.`,
                                 this.permissions.import &&
                                 `You may \`import\` remote modules — try \`jsr:\` first, then \`npm:\`; fall back to \`https://esm.sh/...\` if the package isn't on jsr/npm or if \`npm:\` errors with Node-compat issues. List the exact specifiers in \`preload\` too.`,
                             ].filter(Boolean).join(" "),
@@ -140,7 +145,9 @@ export class ScriptTool extends Tool {
             }
         }
 
-        const workerUrl = "data:application/typescript," + encodeURIComponent(code);
+        const boundTools = chat.agent.tools;
+
+        const workerUrl = "data:application/typescript," + encodeURIComponent(this.buildBridge(boundTools) + code);
         let worker: Worker;
         try {
             worker = new Worker(workerUrl, {
@@ -162,12 +169,16 @@ export class ScriptTool extends Tool {
             return this.toolResult(call, `Error creating worker: ${String(error)}`);
         }
 
+        const { port1: toolPort, port2: workerToolPort } = new MessageChannel();
+
         return await new Promise<ProviderToolMessage>((resolve) => {
             let settled = false;
             const finish = (msg: ProviderToolMessage) => {
                 if (settled) return;
                 settled = true;
                 clearTimeout(timer);
+                toolPort.close();
+                workerToolPort.close();
                 worker.terminate();
                 resolve(msg);
             };
@@ -181,6 +192,13 @@ export class ScriptTool extends Tool {
                 );
             }, timeoutMs);
 
+            toolPort.onmessage = (e: MessageEvent) => {
+                void this.handleBoundToolCall(chat, boundTools, e.data).then((response) => {
+                    if (settled) return;
+                    toolPort.postMessage(response);
+                });
+            };
+
             worker.onmessage = (e: MessageEvent) => {
                 finish(this.toolResult(call, this.stringify(e.data)));
             };
@@ -191,8 +209,80 @@ export class ScriptTool extends Tool {
             worker.onmessageerror = () => {
                 finish(this.toolResult(call, "Error: message error in worker"));
             };
-            worker.postMessage(results);
+            worker.postMessage(results, [workerToolPort]);
         });
+    }
+
+    /** Handles a `{ id, name, args }` request posted from the worker's `tools.<name>(args)` bridge, invoking the matching bound tool for real. */
+    private async handleBoundToolCall(
+        chat: ChatClient,
+        boundTools: Tool[],
+        request: unknown,
+    ): Promise<{ id: string; ok: boolean; value?: unknown; error?: string }> {
+        const { id, name, args } = (request ?? {}) as { id?: string; name?: string; args?: unknown };
+        if (typeof id !== "string" || typeof name !== "string") {
+            return { id: typeof id === "string" ? id : "", ok: false, error: "Malformed tool call request from worker" };
+        }
+
+        const tool = boundTools.find((t) => t.definition.function.name === name);
+        if (!tool) return { id, ok: false, error: `Unknown tool "${name}"` };
+
+        const syntheticCall: ProviderToolCall = {
+            id: `script:${crypto.randomUUID()}`,
+            type: "function",
+            function: { name, arguments: JSON.stringify(args ?? {}) },
+        };
+
+        try {
+            const result = await tool.execute(chat, syntheticCall);
+            return { id, ok: true, value: this.tryParse(result.content) };
+        } catch (error) {
+            return { id, ok: false, error: String(error) };
+        }
+    }
+
+    /**
+     * Builds the code prepended to the worker script that bridges `boundTools` in as global async
+     * `tools.<name>(args)` functions, RPC-ing over a dedicated `MessagePort` (transferred alongside the
+     * worker's initial `postMessage`) so it never interferes with the script's own `self.onmessage`/`self.postMessage`.
+     */
+    private buildBridge(boundTools: Tool[]): string {
+        const names = boundTools.map((tool) => tool.definition.function.name);
+        const entries = names.map((name) => `    ${JSON.stringify(name)}: (args) => __callTool(${JSON.stringify(name)}, args),`).join("\n");
+        return [
+            "{",
+            "let __toolPort;",
+            "const __pending = new Map();",
+            "const __queue = [];",
+            "let __seq = 0;",
+            "function __flush() {",
+            "    if (!__toolPort) return;",
+            "    while (__queue.length) __toolPort.postMessage(__queue.shift());",
+            "}",
+            "self.addEventListener(\"message\", (e) => {",
+            "    if (__toolPort || !e.ports || !e.ports.length) return;",
+            "    __toolPort = e.ports[0];",
+            "    __toolPort.onmessage = (ev) => {",
+            "        const { id, ok, value, error } = ev.data ?? {};",
+            "        const pending = __pending.get(id);",
+            "        if (!pending) return;",
+            "        __pending.delete(id);",
+            "        if (ok) pending.resolve(value); else pending.reject(new Error(error ?? \"tool call failed\"));",
+            "    };",
+            "    __flush();",
+            "});",
+            "function __callTool(name, args) {",
+            "    return new Promise((resolve, reject) => {",
+            "        const id = `t${++__seq}`;",
+            "        __pending.set(id, { resolve, reject });",
+            "        const msg = { id, name, args };",
+            "        if (__toolPort) __toolPort.postMessage(msg); else __queue.push(msg);",
+            "    });",
+            "}",
+            `globalThis.tools = {\n${entries}\n};`,
+            "}",
+            "",
+        ].join("\n");
     }
 
     private tryParse(content: string): unknown {
