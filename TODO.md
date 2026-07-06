@@ -9,3 +9,4 @@
 - [ ] q&a tool
 - [ ] include datetime into user prompts, and also will be used for async ongoing tool calls, let it be custom.
 - [ ] more tool info within the chat
+- [ ] agent needs terminate for nested tool calls, all tools should support abortController
