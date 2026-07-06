@@ -10,6 +10,7 @@ import { ToolCalls } from "~/frontend/components/ToolCalls.ts";
 import { css } from "~/frontend/kit/css.ts";
 import { relativeDate } from "~/frontend/utils/date.ts";
 import { PersistentSocket } from "~/frontend/utils/websocket.ts";
+import { toDOMFriendlyId } from "~/frontend/utils/id.ts";
 
 const scroller = document.scrollingElement ?? document.body;
 
@@ -104,15 +105,16 @@ export async function Chat(chatId: string) {
                 break;
             }
             case "tool": {
+                const domId = toDOMFriendlyId(message.content.value.tool_call_id);
                 const result = toChild(
-                    Markdown(message.content.value.display ?? "").id(`tool-result-${message.content.value.tool_call_id}`),
+                    Markdown(message.content.value.display ?? "").id(`tool-result-${domId}`),
                 );
 
-                const existingResult = log.$node.querySelector(`#tool-result-${message.content.value.tool_call_id}`);
+                const existingResult = log.$node.querySelector(`#tool-result-${domId}`);
                 if (existingResult) {
                     existingResult.replaceWith(result);
                 } else {
-                    const existingCall = log.$node.querySelector(`#tool-call-${message.content.value.tool_call_id}`)!;
+                    const existingCall = log.$node.querySelector(`#tool-call-${domId}`)!;
                     existingCall.after(result);
                 }
 
@@ -186,6 +188,7 @@ const ChatStyle = css`
     ol[role="log"] {
         display: block grid;
         gap: 2em;
+        align-content: end;
         list-style: none;
         min-block-size: 100lvb;
     }

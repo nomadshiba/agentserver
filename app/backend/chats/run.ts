@@ -12,7 +12,7 @@ function transformMessage(message: ProviderChatMessage): ProviderChatMessage {
         return {
             role: "tool",
             tool_call_id: message.tool_call_id,
-            content: `[tool_call_id:${message.tool_call_id}]\n${message.content}`,
+            content: `[tool_call_id:${JSON.stringify(message.tool_call_id)}]\n${message.content}`,
         };
     }
     return message;

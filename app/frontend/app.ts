@@ -2,6 +2,7 @@ import { sync, tags, toChild } from "@purifyjs/core";
 import { ChatNavigation } from "~/frontend/components/ChatNavigation.ts";
 import { awaited } from "~/frontend/kit/awaited.ts";
 import { Chat } from "~/frontend/components/Chat.ts";
+import { NewChat } from "~/frontend/components/NewChat.ts";
 import { unroll } from "~/frontend/kit/unroll.ts";
 import { useReplaceChildren } from "~/frontend/kit/bind.ts";
 import { css } from "~/frontend/kit/css.ts";
@@ -18,7 +19,7 @@ function App() {
         return () => clearInterval(interval);
     }).derive((hash) => hash.slice(1) || undefined);
 
-    const chat = chatId.derive((chatId) => chatId ? awaited(Chat(chatId), progress()) : "new chat").pipe(unroll);
+    const chat = chatId.derive((chatId) => awaited(chatId ? Chat(chatId) : NewChat(), progress())).pipe(unroll);
 
     self.append$(
         header().$bind(useReplaceChildren(navigation)),
@@ -49,7 +50,9 @@ const AppStyle = css`
         z-index: 1;
     }
 
-    main {}
+    main {
+        display: block grid;
+    }
 `;
 
 const GlobalStyle = css`

@@ -7,6 +7,7 @@
     "jsr:@kysely/kysely@~0.28.16": "0.28.16",
     "jsr:@maheshbansod/kysely-codegen@~0.1.1": "0.1.1",
     "jsr:@marshift/kysely-deno-sqlite3@1": "1.0.0",
+    "jsr:@noble/hashes@^2.2.0": "2.2.0",
     "jsr:@nomadshiba/codec@0.5.0-preview.6": "0.5.0-preview.6",
     "jsr:@nostrify/nostrify@0.39": "0.39.1",
     "jsr:@nostrify/nostrify@~0.39.1": "0.39.1",
@@ -17,8 +18,9 @@
     "jsr:@std/cli@^1.0.29": "1.0.31",
     "jsr:@std/cli@^1.0.31": "1.0.31",
     "jsr:@std/crypto@^1.1.0": "1.1.0",
-    "jsr:@std/encoding@1": "1.0.10",
-    "jsr:@std/encoding@^1.0.10": "1.0.10",
+    "jsr:@std/encoding@1": "1.0.11",
+    "jsr:@std/encoding@^1.0.10": "1.0.11",
+    "jsr:@std/encoding@^1.0.11": "1.0.11",
     "jsr:@std/encoding@~0.224.1": "0.224.3",
     "jsr:@std/fmt@1": "1.0.10",
     "jsr:@std/fmt@^1.0.10": "1.0.10",
@@ -117,6 +119,9 @@
         "jsr:@kysely/kysely@0.28"
       ]
     },
+    "@noble/hashes@2.2.0": {
+      "integrity": "984d0f07d004ac13a6029ef2b200651b1572fcc952be4b313ef4e312ad696189"
+    },
     "@nomadshiba/codec@0.5.0-preview.6": {
       "integrity": "bef68b0a2bd9c0853175aa2410b0eaaec83e81db4167d72b877409dfcc6c2eb7",
       "dependencies": [
@@ -167,6 +172,9 @@
     },
     "@std/encoding@1.0.10": {
       "integrity": "8783c6384a2d13abd5e9e87a7ae0520a30e9f56aeeaa3bdf910a3eaaf5c811a1"
+    },
+    "@std/encoding@1.0.11": {
+      "integrity": "e7cef2f0b3153bccc17431e7c864a1de03a4b6d9647389c43e08aaa775d37385"
     },
     "@std/fmt@1.0.10": {
       "integrity": "90dfba288802ac6de82fb31d0917eb9e4450b9925b954d5e51fc29ac07419db5"
@@ -1790,9 +1798,11 @@
       "jsr:@kysely/kysely@~0.28.16",
       "jsr:@maheshbansod/kysely-codegen@~0.1.1",
       "jsr:@marshift/kysely-deno-sqlite3@1",
+      "jsr:@noble/hashes@^2.2.0",
       "jsr:@nomadshiba/codec@0.5.0-preview.6",
       "jsr:@purifyjs/core@0.5.0-preview.5",
       "jsr:@std/cli@^1.0.31",
+      "jsr:@std/encoding@^1.0.11",
       "jsr:@std/http@^1.1.0",
       "jsr:@std/path@^1.1.4",
       "jsr:@std/uuid@^1.1.1"

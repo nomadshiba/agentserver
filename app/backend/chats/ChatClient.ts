@@ -17,8 +17,8 @@ export class ChatClient {
     private constructor(
         public readonly id: string,
         public readonly emitter: Emitter<ChatEvent>,
-        public readonly agent: Agent,
-        public readonly model: { name: string; provider: ProviderClient } | undefined,
+        public agent: Agent,
+        public model: { name: string; provider: ProviderClient } | undefined,
         private readonly prefixMessages: ProviderChatMessage[],
         private readonly oldMessages: ProviderChatMessage[],
         private readonly newMessages: ProviderChatMessage[],
@@ -124,10 +124,14 @@ export class ChatClient {
 
     public async changeModel(providerId: string, model: string) {
         await db.updateTable("chat").where("chat.id", "=", this.id).set({ provider_id: providerId, model }).execute();
+
+        const providerInfo = await db.selectFrom("provider").where("id", "=", providerId).selectAll().executeTakeFirst();
+        this.model = providerInfo ? { name: model, provider: ProviderClient.create({ base: providerInfo.base, key: providerInfo.key }) } : undefined;
     }
 
     public async changeAgent(agent: Agent) {
         await db.updateTable("chat").where("chat.id", "=", this.id).set({ agent: agent.name }).execute();
+        this.agent = agent;
         this.prefixMessages[0] = { role: "system", content: agent.prompt };
     }
 

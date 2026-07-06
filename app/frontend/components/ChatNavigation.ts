@@ -1,7 +1,5 @@
 import { tags } from "@purifyjs/core";
-import { Codec } from "@nomadshiba/codec";
 import { api } from "~/frontend/api.ts";
-import { ChatOutput } from "~/backend/handlers/chats/ChatOutput.ts";
 import { css } from "~/frontend/kit/css.ts";
 
 export async function ChatNavigation() {
@@ -11,12 +9,18 @@ export async function ChatNavigation() {
 
     const chats = await api.fetch("GET /v1/chats", { params: { pathname: {}, search: {} } });
 
-    self.append$(chats.map(ChatNavigationItem));
+    self.append$(NewChatLink(), chats.map(ChatNavigationItem));
 
     return self;
 }
 
-export function ChatNavigationItem(chat: Codec.InferOutput<typeof ChatOutput>) {
+export function NewChatLink() {
+    const { a } = tags;
+    // Bare `#` clears location.hash, which routes App() back to the NewChat view.
+    return a().href("#").id("new-chat").textContent("+ New Chat");
+}
+
+export function ChatNavigationItem(chat: { id: string; name: string }) {
     const { a } = tags;
     return a().href(`#${chat.id}`).id(`chat-${chat.id}`).textContent(chat.name);
 }
@@ -49,6 +53,17 @@ const ChatNavigationSheet = css`
 
         &:hover {
             background-color: var(--surface-hover-strong);
+        }
+    }
+
+    #new-chat {
+        font-weight: var(--weight-medium);
+        color: var(--accent-pop);
+        background-color: var(--accent-base);
+        margin-block-end: 0.35em;
+
+        &:hover {
+            background-color: color-mix(in srgb, var(--accent-base), white 10%);
         }
     }
 `;
