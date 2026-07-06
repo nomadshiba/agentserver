@@ -27,8 +27,8 @@ const appHtmlTransformed = appHtml.replace("<!-- app.js -->", () => `<script typ
 
 Deno.serve({
     port: PORT,
-    onError: (error: unknown) => {
-        console.error(error);
+    onError: (reason: unknown) => {
+        console.error(reason);
         return new Response("Internal Server Error", { status: 500 });
     },
 }, (request) => {

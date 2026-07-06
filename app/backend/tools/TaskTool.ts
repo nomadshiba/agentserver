@@ -31,15 +31,19 @@ export class TaskTool extends Tool {
                     "The subagent does not share your conversation — inline any context/files/values it needs directly in `prompt`.",
                     available.length
                         ? "Available `subagent_type` values:\n" + available.map((a) => `- ${a.name}: ${a.description}`).join("\n")
-                        : "No subagent types are currently registered — this tool cannot be used until an agent with kind \"subagent\" or \"all\" exists.",
+                        : 'No subagent types are currently registered — this tool cannot be used until an agent with kind "subagent" or "all" exists.',
                 ].join("\n\n"),
                 parameters: {
                     type: "object",
                     properties: {
-                        description: { type: "string", description: "A short (3-5 word) description of the task, used as the subagent chat's name." },
+                        description: {
+                            type: "string",
+                            description: "A short (3-5 word) description of the task, used as the subagent chat's name.",
+                        },
                         prompt: {
                             type: "string",
-                            description: "The complete, self-contained task for the subagent to perform autonomously, including what it should return in its final message.",
+                            description:
+                                "The complete, self-contained task for the subagent to perform autonomously, including what it should return in its final message.",
                         },
                         subagent_type: {
                             type: "string",
@@ -58,19 +62,29 @@ export class TaskTool extends Tool {
         try {
             args = JSON.parse(call.function.arguments);
         } catch {
-            return this.toolResult(call, "Error: invalid JSON arguments");
+            return { role: "tool", content: "Error: invalid JSON arguments", tool_call_id: call.id };
         }
 
-        if (!args.prompt) return this.toolResult(call, "Error: missing 'prompt' argument");
-        if (!args.subagent_type) return this.toolResult(call, "Error: missing 'subagent_type' argument");
+        if (!args.prompt) return { role: "tool", content: "Error: missing 'prompt' argument", tool_call_id: call.id };
+        if (!args.subagent_type) return { role: "tool", content: "Error: missing 'subagent_type' argument", tool_call_id: call.id };
 
         const subagent = agentsByName.get(args.subagent_type);
-        if (!subagent) return this.toolResult(call, `Error: unknown subagent_type "${args.subagent_type}"`);
+        if (!subagent) return { role: "tool", content: `Error: unknown subagent_type "${args.subagent_type}"`, tool_call_id: call.id };
         if (subagent.kind === "primary") {
-            return this.toolResult(call, `Error: agent "${subagent.name}" has kind "primary" and can't be used as a subagent`);
+            return {
+                role: "tool",
+                content: `Error: agent "${subagent.name}" has kind "primary" and can't be used as a subagent`,
+                tool_call_id: call.id,
+            };
         }
 
-        if (!chat.model) return this.toolResult(call, "Error: this chat has no model configured, can't run a subagent");
+        if (!chat.model) {
+            return {
+                role: "tool",
+                content: "Error: this chat has no model configured, can't run a subagent",
+                tool_call_id: call.id,
+            };
+        }
 
         let subChat: ChatClient;
         try {
@@ -80,8 +94,12 @@ export class TaskTool extends Tool {
                 model: chat.model.name,
                 callId: call.id,
             });
-        } catch (error) {
-            return this.toolResult(call, `Error creating subagent chat: ${String(error)}`);
+        } catch (reason) {
+            return {
+                role: "tool",
+                content: `Error creating subagent chat: ${String(reason)}`,
+                tool_call_id: call.id,
+            };
         }
 
         try {
@@ -89,8 +107,12 @@ export class TaskTool extends Tool {
             // since we need its final answer back before we can resolve this tool call.
             await subChat.pushMessage({ role: "user", content: args.prompt }, { autorun: false });
             await runAgent(subChat);
-        } catch (error) {
-            return this.toolResult(call, `Error running subagent: ${String(error)}`);
+        } catch (reason) {
+            return {
+                role: "tool",
+                content: `Error running subagent: ${String(reason)}`,
+                tool_call_id: call.id,
+            };
         }
 
         let finalMessage: string | undefined;
@@ -98,11 +120,11 @@ export class TaskTool extends Tool {
             if (message.role === "assistant") finalMessage = message.content ?? message.refusal ?? finalMessage;
         }
 
-        return this.toolResult(call, finalMessage ?? "(subagent finished without a final message)");
-    }
-
-    private toolResult(call: ProviderToolCall, content: string): ProviderToolMessage {
-        return { role: "tool", content, tool_call_id: call.id };
+        return {
+            role: "tool",
+            content: finalMessage ?? "(subagent finished without a final message)",
+            tool_call_id: call.id,
+        };
     }
 
     override transformCall(call: ProviderToolCall): string {

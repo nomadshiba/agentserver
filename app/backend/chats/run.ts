@@ -101,8 +101,8 @@ export async function runAgent(chat: ChatClient): Promise<void> {
             if (tool) {
                 try {
                     result = await tool.execute(chat, call);
-                } catch (error) {
-                    result = { role: "tool", content: `Error: ${String(error)}`, tool_call_id: call.id };
+                } catch (reason) {
+                    result = { role: "tool", content: `Error: ${String(reason)}`, tool_call_id: call.id };
                 }
             } else {
                 result = { role: "tool", content: `Error: unknown tool "${call.function.name}"`, tool_call_id: call.id };

@@ -125,8 +125,8 @@ export class ScriptTool extends Tool {
                         import(spec),
                         new Promise((_, reject) => setTimeout(() => reject(new Error("preload timed out")), PRELOAD_TIMEOUT_MS)),
                     ]);
-                } catch (error) {
-                    preloadErrors.push(`${spec}: ${String(error)}`);
+                } catch (reason) {
+                    preloadErrors.push(`${spec}: ${String(reason)}`);
                 }
             }));
             if (preloadErrors.length) {
@@ -165,8 +165,8 @@ export class ScriptTool extends Tool {
                     },
                 },
             } as WorkerOptions);
-        } catch (error) {
-            return this.toolResult(call, `Error creating worker: ${String(error)}`);
+        } catch (reason) {
+            return this.toolResult(call, `Error creating worker: ${String(reason)}`);
         }
 
         const { port1: toolPort, port2: workerToolPort } = new MessageChannel();
@@ -193,7 +193,7 @@ export class ScriptTool extends Tool {
             }, timeoutMs);
 
             toolPort.onmessage = (e: MessageEvent) => {
-                void this.handleBoundToolCall(chat, boundTools, e.data).then((response) => {
+                void this.handleBoundToolCall(chat, call, boundTools, e.data).then((response) => {
                     if (settled) return;
                     toolPort.postMessage(response);
                 });
@@ -216,6 +216,7 @@ export class ScriptTool extends Tool {
     /** Handles a `{ id, name, args }` request posted from the worker's `tools.<name>(args)` bridge, invoking the matching bound tool for real. */
     private async handleBoundToolCall(
         chat: ChatClient,
+        call: ProviderToolCall,
         boundTools: Tool[],
         request: unknown,
     ): Promise<{ id: string; ok: boolean; value?: unknown; error?: string }> {
@@ -227,8 +228,11 @@ export class ScriptTool extends Tool {
         const tool = boundTools.find((t) => t.definition.function.name === name);
         if (!tool) return { id, ok: false, error: `Unknown tool "${name}"` };
 
+        // Reuse this real, already-persisted `script` call's id as the synthetic call's id (rather than
+        // fabricating a new one) — some tools (e.g. `task`) key DB rows off `call.id` (`root_tool_call_id`),
+        // which must reference a row that actually exists in `chat_message_role_assistant_toolcall`.
         const syntheticCall: ProviderToolCall = {
-            id: `script:${crypto.randomUUID()}`,
+            id: call.id,
             type: "function",
             function: { name, arguments: JSON.stringify(args ?? {}) },
         };
@@ -236,8 +240,8 @@ export class ScriptTool extends Tool {
         try {
             const result = await tool.execute(chat, syntheticCall);
             return { id, ok: true, value: this.tryParse(result.content) };
-        } catch (error) {
-            return { id, ok: false, error: String(error) };
+        } catch (reason) {
+            return { id, ok: false, error: String(reason) };
         }
     }
 
@@ -259,7 +263,7 @@ export class ScriptTool extends Tool {
             "    if (!__toolPort) return;",
             "    while (__queue.length) __toolPort.postMessage(__queue.shift());",
             "}",
-            "self.addEventListener(\"message\", (e) => {",
+            'self.addEventListener("message", (e) => {',
             "    if (__toolPort || !e.ports || !e.ports.length) return;",
             "    __toolPort = e.ports[0];",
             "    __toolPort.onmessage = (ev) => {",
@@ -267,7 +271,7 @@ export class ScriptTool extends Tool {
             "        const pending = __pending.get(id);",
             "        if (!pending) return;",
             "        __pending.delete(id);",
-            "        if (ok) pending.resolve(value); else pending.reject(new Error(error ?? \"tool call failed\"));",
+            '        if (ok) pending.resolve(value); else pending.reject(new Error(error ?? "tool call failed"));',
             "    };",
             "    __flush();",
             "});",

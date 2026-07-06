@@ -1,3 +1,5 @@
+// TODO: Actually parse it
+
 const ESC: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ESC[c]);
 
@@ -145,14 +147,16 @@ function safeUrl(url: string): string | null {
     return u;
 }
 
-function inlineText(raw: string): string {
+// `plain` resolves code-span placeholders to escaped plain text (no tags),
+// for contexts where HTML isn't allowed (e.g. img alt attributes).
+function inlineText(raw: string, plain: (s: string) => string): string {
     let out = esc(raw);
     // backslash escapes first — emit numeric entities so later regexes can't match them
     out = out.replace(/\\([*_`~[\]()#|\\!-])/g, (_, c: string) => `&#${c.charCodeAt(0)};`);
     // images before links
     out = out.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (_, alt: string, url: string) => {
         const u = safeUrl(url);
-        return u ? `<img src="${esc(u)}" alt="${alt}">` : alt;
+        return u ? `<img src="${esc(u)}" alt="${plain(alt)}">` : plain(alt);
     });
     out = out.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, text: string, url: string) => {
         const u = safeUrl(url);
@@ -167,13 +171,20 @@ function inlineText(raw: string): string {
 }
 
 function inline(raw: string): string {
-    // split out code spans first so nothing inside them is touched
-    return raw
-        .split(/(`[^`\n]+`)/)
-        .map((part) =>
-            part.length > 2 && part.startsWith("`") && part.endsWith("`") ? `<code>${esc(part.slice(1, -1))}</code>` : inlineText(part)
-        )
-        .join("");
+    // swap code spans for NUL-delimited placeholders so the surrounding text
+    // stays contiguous — `**\`x\`**` must still match the bold regex.
+    // NUL survives esc() untouched and can't appear in input (stripped in
+    // renderMarkdown), so it can't collide or be forged.
+    const codes: string[] = [];
+    const tmp = raw.replace(/(?<!\\)`([^`\n]+)`/g, (_, c: string) => {
+        codes.push(c);
+        return `\u0000${codes.length - 1}\u0000`;
+    });
+    const plain = (s: string) => s.replace(/\u0000(\d+)\u0000/g, (_, n: string) => esc(codes[+n]));
+    return inlineText(tmp, plain).replace(
+        /\u0000(\d+)\u0000/g,
+        (_, n: string) => `<code>${esc(codes[+n])}</code>`,
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -247,7 +258,8 @@ function listItemHtml(content: string): string {
 // ---------------------------------------------------------------------------
 
 export function renderMarkdown(md: string): string {
-    const lines = md.replace(/\r\n?/g, "\n").split("\n");
+    // strip NUL so it can't forge inline() placeholders
+    const lines = md.replace(/\u0000/g, "").replace(/\r\n?/g, "\n").split("\n");
     let html = "";
     let i = 0;
 

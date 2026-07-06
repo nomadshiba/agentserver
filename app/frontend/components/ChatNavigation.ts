@@ -28,8 +28,8 @@ export function ChatNavigationItem(chat: { id: string; name: string }) {
 
 const ChatNavigationSheet = css`
     :scope {
-        display: flex;
-        flex-direction: column;
+        display: block grid;
+        align-content: start;
         gap: 0.3em;
 
         padding-inline: 0.6em;

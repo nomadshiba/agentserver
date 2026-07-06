@@ -28,16 +28,21 @@ const ToolCallsSheet = css`
         display: block grid;
         gap: 0.4em;
         list-style: none;
+        justify-items: start;
     }
 
     dialog {
         padding: 1em;
     }
 
+    li {
+        display: contents;
+    }
+
     button {
         all: unset;
         cursor: pointer;
-        display: inline-block;
+        display: inline flow-root;
         padding-inline: 0.6em;
         padding-block: 0.3em;
         border-radius: var(--radius);

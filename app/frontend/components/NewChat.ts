@@ -38,7 +38,7 @@ export async function NewChat() {
     const agent: Sync.Ref<string> = ref(defaults.agent);
     const model: Sync.Ref<SelectedModel | undefined> = ref(defaults.model);
     const sending = ref(false);
-    const error = ref<string | null>(null);
+    const fail = ref<string | null>(null);
 
     return self.append$(
         p({ class: "hint" }).textContent("Start a new conversation"),
@@ -60,7 +60,7 @@ export async function NewChat() {
                 if (!value || sending.get()) return;
 
                 sending.set(true);
-                error.set(null);
+                fail.set(null);
                 try {
                     const name = value.split("\n", 1)[0]!.slice(0, 60) || "New chat";
                     const chat = await api.fetch("POST /v1/chats", { params: { pathname: {}, search: {} }, data: { name } });
@@ -92,12 +92,12 @@ export async function NewChat() {
                     location.hash = chat.id;
                 } catch (cause) {
                     console.error(cause);
-                    error.set("Failed to send message. Please try again.");
+                    fail.set("Failed to send message. Please try again.");
                     sending.set(false);
                 }
             }),
-        p({ class: "error" }).textContent(error.derive((error) => error ?? "")).$bind((element) =>
-            error.follow((error) => element.hidden = !error, true)
+        p({ class: "error" }).textContent(fail.derive((reason) => reason ?? "")).$bind((element) =>
+            fail.follow((reason) => element.hidden = !reason, true)
         ),
     );
 }

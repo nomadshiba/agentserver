@@ -10,7 +10,7 @@ export function ProviderManager() {
 
     const providers = ref<Provider[] | null>(null);
     const loading = ref(false);
-    const error = ref("");
+    const fail = ref("");
     const editingId = ref<string | null>(null);
 
     const name = ref("");
@@ -22,7 +22,7 @@ export function ProviderManager() {
         try {
             providers.set(await api.fetch("GET /v1/providers", { params: { pathname: {}, search: {} } }));
         } catch (cause) {
-            error.set(cause instanceof Error ? cause.message : String(cause));
+            fail.set(cause instanceof Error ? cause.message : String(cause));
         } finally {
             loading.set(false);
         }
@@ -43,7 +43,7 @@ export function ProviderManager() {
     };
 
     const submit = async () => {
-        error.set("");
+        fail.set("");
         loading.set(true);
         try {
             const id = editingId.get();
@@ -56,7 +56,7 @@ export function ProviderManager() {
             resetForm();
             await refresh();
         } catch (cause) {
-            error.set(cause instanceof Error ? cause.message : String(cause));
+            fail.set(cause instanceof Error ? cause.message : String(cause));
         } finally {
             loading.set(false);
         }
@@ -69,7 +69,7 @@ export function ProviderManager() {
             await api.fetch("DELETE /v1/providers/:providerId", { params: { pathname: { providerId: id }, search: {} } });
             await refresh();
         } catch (cause) {
-            error.set(cause instanceof Error ? cause.message : String(cause));
+            fail.set(cause instanceof Error ? cause.message : String(cause));
         } finally {
             loading.set(false);
         }
@@ -105,7 +105,7 @@ export function ProviderManager() {
                 strong().textContent("Providers"),
                 button({ class: "close" }).type("button").ariaLabel("Close").textContent("×").onclick(() => modal.close()),
             ),
-            p({ class: "error" }).textContent(error),
+            p({ class: "error" }).textContent(fail),
             ul().$bind(useReplaceChildren(items)),
             form()
                 .onsubmit((event) => {
