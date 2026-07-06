@@ -1,8 +1,7 @@
 import { tags } from "@purifyjs/core";
 import { ToolCallOutput } from "~/frontend/api.ts";
-import { css } from "~/frontend/kit/css.ts";
 import { Markdown } from "~/frontend/components/Markdown.ts";
-import { toDOMFriendlyId } from "~/frontend/utils/id.ts";
+import { css } from "~/frontend/kit/css.ts";
 
 export function ToolCalls(calls: ToolCallOutput[]) {
     const { ol, li, button, dialog } = tags;
@@ -11,7 +10,7 @@ export function ToolCalls(calls: ToolCallOutput[]) {
 
     self.append$(calls.map((call) => {
         const modal = dialog().append$(
-            Markdown(call.value.display).id(`tool-call-${toDOMFriendlyId(call.value.id)}`),
+            Markdown(call.value.display).id(`tool-call-${call.value.id.slice(-6)}`),
         );
 
         return li().append$(

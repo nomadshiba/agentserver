@@ -4,13 +4,13 @@ import { css } from "~/frontend/kit/css.ts";
 import { ProviderManager } from "~/frontend/components/ProviderManager.ts";
 
 export async function ChatNavigation() {
-    const { nav } = tags;
+    const { nav, ul } = tags;
     const self = nav().id("chats").ariaLabel("Chat Rooms");
     self.$bind(ChatNavigationSheet.useScope());
 
     const chats = await api.fetch("GET /v1/chats", { params: { pathname: {}, search: {} } });
 
-    self.append$(NewChatLink(), chats.map(ChatNavigationItem), ProviderManager());
+    self.append$(NewChatLink(), ul().append$(chats.map(ChatNavigationItem)), ProviderManager());
 
     return self;
 }
@@ -22,23 +22,32 @@ export function NewChatLink() {
 }
 
 export function ChatNavigationItem(chat: { id: string; name: string }) {
-    const { a } = tags;
-    return a().href(`#${chat.id}`).id(`chat-${chat.id}`).textContent(chat.name);
+    const { a, li } = tags;
+    return li().append$(a().href(`#${chat.id}`).id(`chat-${chat.id}`).textContent(chat.name));
 }
 
 const ChatNavigationSheet = css`
     :scope {
         display: block grid;
-        align-content: start;
+        grid-template-rows: auto 1fr auto;
         gap: 0.3em;
 
         padding-inline: 0.6em;
         padding-block: 1em;
     }
 
-    a {
+    ul {
+        list-style: none;
         display: block grid;
-        align-items: center;
+        gap: 0.3em;
+        align-content: start;
+    }
+
+    li {
+        display: contents;
+    }
+
+    a {
         padding-inline: 0.7em;
         padding-block: 0.55em;
         border-radius: var(--radius);

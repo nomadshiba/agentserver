@@ -10,7 +10,6 @@ import { ToolCalls } from "~/frontend/components/ToolCalls.ts";
 import { css } from "~/frontend/kit/css.ts";
 import { relativeDate } from "~/frontend/utils/date.ts";
 import { PersistentSocket } from "~/frontend/utils/websocket.ts";
-import { toDOMFriendlyId } from "~/frontend/utils/id.ts";
 
 const scroller = document.scrollingElement ?? document.body;
 
@@ -105,7 +104,7 @@ export async function Chat(chatId: string) {
                 break;
             }
             case "tool": {
-                const domId = toDOMFriendlyId(message.content.value.tool_call_id);
+                const domId = message.content.value.tool_call_id.slice(-8);
                 const result = toChild(
                     Markdown(message.content.value.display ?? "").id(`tool-result-${domId}`),
                 );

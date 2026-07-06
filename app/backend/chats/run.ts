@@ -1,3 +1,4 @@
+import { v7 } from "@std/uuid";
 import { ChatClient } from "~/backend/chats/ChatClient.ts";
 import {
     ProviderAssistantMessage,
@@ -50,9 +51,11 @@ export async function runAgent(chat: ChatClient): Promise<void> {
                     refusalBuffer += delta.value;
                     chat.emitter.emit({ kind: "stream", value: { kind: "refusal", value: delta.value } });
                 } else if (delta.kind === "tool_call") {
+                    // We mint our own id instead of trusting the provider's `delta.value.id` — it's used as
+                    // `chat_message_role_assistant_toolcall.id` (our primary key), and some providers just
+                    // hand back small per-turn indexes (e.g. "0", "1") which would collide across messages.
                     const existing = toolCallBuffers.get(delta.value.index) ??
-                        { id: delta.value.id ?? "", name: delta.value.name ?? "", arguments: "" };
-                    if (delta.value.id) existing.id = delta.value.id;
+                        { id: v7.generate(), name: delta.value.name ?? "", arguments: "" };
                     if (delta.value.name) existing.name = delta.value.name;
                     if (delta.value.arguments) existing.arguments += delta.value.arguments;
                     toolCallBuffers.set(delta.value.index, existing);
