@@ -84,7 +84,7 @@ const GlobalStyle = css`
         padding: 0;
     }
 
-    dialog[open] {
+    dialog:where([open]) {
         all: unset;
         display: block grid;
         align-content: start;
