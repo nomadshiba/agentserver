@@ -1,6 +1,6 @@
 import { db } from "~/backend/database/client.ts";
 import { router } from "~/router.ts";
-import { invalidateModelsCache } from "~/backend/providers/modelsCache.ts";
+import { ProviderClient } from "~/backend/providers/ProviderClient.ts";
 
 router.registerHandler("DELETE /v1/providers/:providerId", async ({ params }) => {
     const id = params.pathname.providerId;
@@ -13,7 +13,7 @@ router.registerHandler("DELETE /v1/providers/:providerId", async ({ params }) =>
         return { status: "NotFound" };
     }
 
-    invalidateModelsCache(id);
+    ProviderClient.invalidate(id);
 
     return { status: "OK", data: null };
 });

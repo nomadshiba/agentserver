@@ -20,7 +20,7 @@ await import("~/backend/handlers/chats/messages/create.ts");
 await import("~/backend/handlers/chats/messages/many.ts");
 await import("~/backend/handlers/chats/messages/delete.ts");
 
-const PORT = Number(Deno.env.get("PORT") ?? 8000);
+const PORT = Number(Deno.env.get("PORT") ?? 5000);
 const CHAT_WEBSOCKET_REGEX = /^\/v1\/chats\/([0-9a-f-]+)\/stream$/;
 
 const appHtmlTransformed = appHtml.replace("<!-- app.js -->", () => `<script type="module">${appJs}</script>`);

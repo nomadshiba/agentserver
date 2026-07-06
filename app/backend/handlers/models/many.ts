@@ -1,5 +1,5 @@
 import { db } from "~/backend/database/client.ts";
-import { getCachedModels } from "~/backend/providers/modelsCache.ts";
+import { ProviderClient } from "~/backend/providers/ProviderClient.ts";
 import { router } from "~/router.ts";
 
 router.registerHandler("GET /v1/models", () => handleModels());
@@ -8,12 +8,13 @@ router.registerHandler("GET /v1/models?provider=:provider", ({ params }) => hand
 async function handleModels(providerId?: string) {
     const providers = await db.selectFrom("provider")
         .$if(Boolean(providerId), (qb) => qb.where("provider.id", "=", providerId!))
-        .selectAll("provider")
+        .select("provider.id")
         .execute();
 
     const models = [];
     for (const row of providers) {
-        const providerModels = await getCachedModels(row.id, row.base, row.key);
+        const client = await ProviderClient.open(row.id);
+        const providerModels = client ? await client.models() : [];
         for (const m of providerModels) {
             models.push({
                 id: m.id,

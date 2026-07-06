@@ -5,7 +5,7 @@ import { Timestamp } from "~/libs/codecs/Timestamp.ts";
 export const ChatOutput = new ModelCodec({
     id: UUID,
     name: Str,
-    "root_message_id?": UUID,
+    "root_tool_call_id?": Str,
     agent: Str,
     "model?": new StructCodec({
         name: Str,

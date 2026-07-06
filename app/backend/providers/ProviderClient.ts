@@ -1,15 +1,47 @@
+import { db } from "~/backend/database/client.ts";
+import { WeakRefMap } from "~/libs/collections/WeakRefMap.ts";
+
 export class ProviderClient {
+    public readonly id: string;
     public readonly base: string;
     public readonly key: string;
 
-    private constructor(base: string, key: string) {
+    private constructor(id: string, base: string, key: string) {
+        this.id = id;
         this.base = base;
         this.key = key;
     }
 
-    static create(options: { base: string; key: string }): ProviderClient {
-        return new ProviderClient(options.base, options.key);
+    private static cache = new WeakRefMap<string, ProviderClient>();
+    private static loading = new Map<string, Promise<ProviderClient | undefined>>();
+
+    /** Loads (or reuses a cached) `ProviderClient` for the given provider `id` — same `id` always yields the same instance. */
+    static open(id: string): Promise<ProviderClient | undefined> {
+        const cached = this.cache.get(id);
+        if (cached) return Promise.resolve(cached);
+
+        const inflight = this.loading.get(id);
+        if (inflight) return inflight;
+
+        const promise = db.selectFrom("provider").where("id", "=", id).select(["base", "key"]).executeTakeFirst()
+            .then((row) => {
+                if (!row) return undefined;
+                const client = new ProviderClient(id, row.base, row.key);
+                this.cache.set(id, client);
+                return client;
+            })
+            .finally(() => this.loading.delete(id));
+        this.loading.set(id, promise);
+        return promise;
     }
+
+    /** Drops the cached client for `id` (e.g. after its base/key were edited) — the next `open(id)` re-fetches it. */
+    static invalidate(id: string): void {
+        this.cache.delete(id);
+    }
+
+    private static readonly MODELS_CACHE_TTL_MS = 60_000;
+    private modelsCache: { models: ProviderModel[]; expires: number } | undefined;
 
     async chat(input: ProviderChatInput): Promise<ProviderAssistantMessage> {
         const body = {
@@ -121,6 +153,9 @@ export class ProviderClient {
     }
 
     async models(): Promise<ProviderModel[]> {
+        const now = Date.now();
+        if (this.modelsCache && this.modelsCache.expires > now) return this.modelsCache.models;
+
         const res = await fetch(`${this.base}/models`, {
             method: "GET",
             headers: { "Authorization": `Bearer ${this.key}` },
@@ -132,7 +167,9 @@ export class ProviderClient {
         }
 
         const json = await res.json() as { data: { id: string; object: string; created: number; owned_by: string }[] };
-        return json.data.map((model) => ({ id: model.id, name: model.id, created: model.created * 1000 }));
+        const models = json.data.map((model) => ({ id: model.id, name: model.id, created: model.created * 1000 }));
+        this.modelsCache = { models, expires: now + ProviderClient.MODELS_CACHE_TTL_MS };
+        return models;
     }
 }
 

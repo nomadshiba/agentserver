@@ -18,7 +18,7 @@ router.registerHandler("GET /v1/chats/:chatId", async ({ params }) => {
     const chat: Codec.InferInput<typeof ChatOutput> = {
         id: row.id,
         name: row.name,
-        root_message_id: row.root_message_id ?? undefined,
+        root_tool_call_id: row.root_tool_call_id ?? undefined,
         agent: row.agent,
         model: row.model && row.provider_id ? { name: row.model, providerId: row.provider_id } : undefined,
         created: row.created,

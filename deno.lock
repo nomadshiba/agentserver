@@ -63,6 +63,7 @@
     "npm:dotenv-expand@^11.0.6": "11.0.7",
     "npm:dotenv@^16.4.5": "16.6.1",
     "npm:git-diff@^2.0.6": "2.0.6",
+    "npm:hash-wasm@*": "4.12.0",
     "npm:kysely@~0.27.4": "0.27.6",
     "npm:lru-cache@^10.2.0": "10.4.3",
     "npm:micromatch@^4.0.8": "4.0.8",
@@ -876,6 +877,9 @@
         "safe-buffer@5.2.1",
         "to-buffer"
       ]
+    },
+    "hash-wasm@4.12.0": {
+      "integrity": "sha512-+/2B2rYLb48I/evdOIhP+K/DD2ca2fgBjp6O+GBEnCDk2e4rpeXIK8GvIyRPjTezgmWn9gmKwkQjjx6BtqDHVQ=="
     },
     "hash.js@1.1.7": {
       "integrity": "sha512-taOaskGt4z4SOANNseOviYDvjEJinIkRgmp7LbKP2YTTmVxWBl87s/uzK9r+44BclBSp2X7K1hqeNfz9JbBeXA==",

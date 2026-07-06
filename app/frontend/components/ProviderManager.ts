@@ -77,7 +77,9 @@ export function ProviderManager() {
 
     const items = combine({ providers, editingId }).derive(({ providers, editingId }) => {
         if (!providers) {
-            return p({ class: "hint" }).textContent(loading.derive((loading) => loading ? "Loading providers..." : "Failed to load providers."));
+            return p({ class: "hint" }).textContent(
+                loading.derive((loading) => loading ? "Loading providers..." : "Failed to load providers."),
+            );
         }
         if (!providers.length) {
             return p({ class: "hint" }).textContent("No providers yet. Add one below.");
@@ -113,11 +115,22 @@ export function ProviderManager() {
                 .append$(
                     fieldset().append$(
                         legend().textContent(editingId.derive((id) => id ? "Edit Provider" : "Add Provider")),
-                        label().append$(small().textContent("Name"), input().type("text").placeholder("OpenAI").$bind(useValue(name))),
-                        label().append$(small().textContent("Base URL"), input().type("url").placeholder("https://api.openai.com/v1").$bind(useValue(base))),
-                        label().append$(small().textContent("API Key"), input().type("password").placeholder("sk-...").$bind(useValue(key))),
+                        label().append$(
+                            small().textContent("Name"),
+                            input().type("text").placeholder("Ollama Cloud").$bind(useValue(name)),
+                        ),
+                        label().append$(
+                            small().textContent("Base URL"),
+                            input().type("url").placeholder("https://ollama.com/v1").$bind(useValue(base)),
+                        ),
+                        label().append$(
+                            small().textContent("API Key"),
+                            input().type("password").placeholder("sk-...").$bind(useValue(key)),
+                        ),
                         menu().append$(
-                            li().append$(button().type("submit").disabled(loading).textContent(editingId.derive((id) => id ? "Update" : "Create"))),
+                            li().append$(
+                                button().type("submit").disabled(loading).textContent(editingId.derive((id) => id ? "Update" : "Create")),
+                            ),
                             li().append$(button().type("button").textContent("Cancel").onclick(resetForm)),
                         ),
                     ),

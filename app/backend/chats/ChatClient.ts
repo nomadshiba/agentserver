@@ -25,7 +25,17 @@ export class ChatClient {
         private readonly suffixMessages: ProviderChatMessage[],
     ) {}
 
-    public static async create(name: string): Promise<ChatClient> {
+    /**
+     * @param options.agent Agent to use for the new chat. Defaults to the most recently used chat's agent.
+     * @param options.providerId Provider to use for the new chat. Defaults to the most recently used chat's provider.
+     * @param options.model Model to use for the new chat. Defaults to the most recently used chat's model.
+     * @param options.callId If this chat is a subagent run spawned by a tool call (e.g. `task`), the id
+     * (`chat_message_role_assistant_toolcall.id`) of that tool call — links this chat back to it via `root_tool_call_id`.
+     */
+    public static async create(
+        name: string,
+        options?: { agent?: Agent; providerId?: string; model?: string; callId?: string },
+    ): Promise<ChatClient> {
         const now = Date.now();
         const id = v7.generate(now);
 
@@ -37,9 +47,10 @@ export class ChatClient {
         await db.insertInto("chat").values({
             id,
             name,
-            agent: lastChat?.agent ?? agents[0].name,
-            model: lastChat?.model,
-            provider_id: lastChat?.provider_id,
+            root_tool_call_id: options?.callId,
+            agent: options?.agent?.name ?? lastChat?.agent ?? agents[0].name,
+            model: options?.model ?? lastChat?.model,
+            provider_id: options?.providerId ?? lastChat?.provider_id,
             created: now,
             updated: now,
         }).execute();
@@ -104,11 +115,11 @@ export class ChatClient {
             }
         }
 
-        const providerInfo = await db.selectFrom("provider").orderBy("created", "desc")
-            .selectAll()
+        const providerRow = await db.selectFrom("provider").orderBy("created", "desc")
+            .select("id")
             .$if(Boolean(chat?.provider_id), (qb) => qb.where("id", "=", chat!.provider_id))
             .executeTakeFirst();
-        const provider = providerInfo ? ProviderClient.create({ base: providerInfo.base, key: providerInfo.key }) : undefined;
+        const provider = providerRow ? await ProviderClient.open(providerRow.id) : undefined;
 
         return new ChatClient(
             chatId,
@@ -125,8 +136,8 @@ export class ChatClient {
     public async changeModel(providerId: string, model: string) {
         await db.updateTable("chat").where("chat.id", "=", this.id).set({ provider_id: providerId, model }).execute();
 
-        const providerInfo = await db.selectFrom("provider").where("id", "=", providerId).selectAll().executeTakeFirst();
-        this.model = providerInfo ? { name: model, provider: ProviderClient.create({ base: providerInfo.base, key: providerInfo.key }) } : undefined;
+        const provider = await ProviderClient.open(providerId);
+        this.model = provider ? { name: model, provider } : undefined;
     }
 
     public async changeAgent(agent: Agent) {
@@ -142,7 +153,12 @@ export class ChatClient {
         for (const message of this.suffixMessages) yield message;
     }
 
-    public async pushMessage(message: ProviderChatMessage) {
+    /**
+     * @param options.autorun When `message` is a `user` message, whether to kick off `runAgent(this)` in the
+     * background (fire-and-forget, same as before). Defaults to `true`. Pass `false` when you need to drive/await
+     * the run yourself (e.g. a subagent tool that awaits `runAgent(subChat)` directly to get its final answer).
+     */
+    public async pushMessage(message: ProviderChatMessage, options?: { autorun?: boolean }) {
         const { role } = message;
         const now = Date.now();
         const id = v7.generate(now);
@@ -207,7 +223,7 @@ export class ChatClient {
 
         await tx.commit().execute();
 
-        if (message.role === "user") {
+        if (message.role === "user" && options?.autorun !== false) {
             runAgent(this).catch((reason) => {
                 console.error("agent run failed:", reason);
                 this.emitter.emit({

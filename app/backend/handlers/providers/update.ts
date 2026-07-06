@@ -4,7 +4,7 @@ import { Provider } from "~/backend/database/generated/types.ts";
 import { RouteHandlerResult } from "~/libs/routing/Router.ts";
 import { router } from "~/router.ts";
 import { RoutesSchema } from "~/routes.ts";
-import { invalidateModelsCache } from "~/backend/providers/modelsCache.ts";
+import { ProviderClient } from "~/backend/providers/ProviderClient.ts";
 
 router.registerHandler("PATCH /v1/providers/:providerId", async ({ params, data }) => {
     const id = params.pathname.providerId;
@@ -34,7 +34,7 @@ router.registerHandler("PATCH /v1/providers/:providerId", async ({ params, data 
             return { status: "NotFound" };
         }
 
-        invalidateModelsCache(id);
+        ProviderClient.invalidate(id);
 
         return {
             status: "OK",
