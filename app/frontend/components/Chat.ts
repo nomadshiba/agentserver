@@ -104,7 +104,9 @@ export async function Chat(chatId: string) {
                 break;
             }
             case "tool": {
-                const result = toChild(Markdown(message.content.value.display ?? ""));
+                const result = toChild(
+                    Markdown(message.content.value.display ?? "").id(`tool-result-${message.content.value.tool_call_id}`),
+                );
 
                 const existingResult = log.$node.querySelector(`#tool-result-${message.content.value.tool_call_id}`);
                 if (existingResult) {
