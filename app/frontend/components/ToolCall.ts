@@ -1,63 +1,62 @@
 import { tags } from "@purifyjs/core";
-import { ChatAssistantMessage } from "~/frontend/api.ts";
+import { ChatAssistantMessage, ChatToolMessage } from "~/frontend/api.ts";
 import { Markdown } from "~/frontend/components/Markdown.ts";
 import { css } from "~/frontend/kit/css.ts";
-import { ChatAssistantMessageEmittter } from "~/frontend/events/ChatAssistantMessageEmittter.ts";
 
-export function ToolCalls(messageId: string, toolCalls: ChatAssistantMessage["content"]["tool_calls"]) {
-    const { ul, li, button, dialog, header, section, span, pre } = tags;
+export function ToolCall(
+    call: ChatAssistantMessage["content"]["value"]["tool_calls"][number],
+    state:
+        | { kind: "streaming" }
+        | { kind: "running" }
+        | { kind: "result"; message: ChatToolMessage },
+) {
+    const { ul, li, button, dialog, header, section, span } = tags;
     const self = ul().ariaLabel("Tool calls");
-    self.$bind(ToolCallsStyle.useScope());
+    self.$bind(ToolCallStyle.useScope());
 
-    self.append$(toolCalls.map((call) => {
-        const domId = call.value.id.slice(-8);
-        const { summary, content } = call.value.display;
+    const { summary, content } = call.value.display;
 
-        const modal = dialog()
-            .$bind(ToolCallsModalStyle.useScope())
-            .onclick((event) => {
-                if (event.target === event.currentTarget) modal.close();
-            })
-            .append$(
-                header().append$(
-                    Markdown(summary),
-                    button().type("button").ariaLabel("Close").textContent("×").onclick(() => modal.close()),
-                ),
-                section().ariaLabel("Call").append$(
-                    span({ class: "label" }).textContent("Call"),
-                    Markdown(content),
-                ),
-                section().ariaLabel("Result").append$(
-                    span({ class: "label" }).textContent("Result"),
-                    span({ class: "status pending" }).textContent("Running…"),
-                ),
-            );
+    // TODO: dont fill in the dialog before openning it.
+    const modal = dialog()
+        .$bind(ToolCallsModalStyle.useScope())
+        .onclick((event) => {
+            if (event.target === event.currentTarget) modal.close();
+        })
+        .append$(
+            header().append$(
+                Markdown(summary),
+                button().type("button").ariaLabel("Close").textContent("×").onclick(() => modal.close()),
+            ),
+            section().ariaLabel("Call").append$(
+                span({ class: "label" }).textContent("Call"),
+                Markdown(content),
+            ),
+            section().ariaLabel("Result").append$(
+                span({ class: "label" }).textContent("Result"),
+                state.kind === "result"
+                    ? Markdown(state.message.content.value.display)
+                    : span({ class: "status pending" }).textContent(state.kind === "streaming" ? "Writing…" : "Running…"),
+            ),
+        );
 
-        return li().append$(
-            button().type("button").id(`tool-call-${domId}`)
+    return li()
+        .$bind(ToolCallStyle.useScope())
+        .append$(
+            button().type("button")
                 .append$(
                     Markdown(summary),
-                    span({ class: "status pending" }).textContent("Running…"),
-                    pre().$bind((element) => {
-                        return ChatAssistantMessageEmittter.subscribe(messageId, (result) => {
-                            // TODO: arguments scrolling terminal during progress
-                        });
-                    }),
+                    state.kind === "result"
+                        ? null
+                        : span({ class: "status pending" }).textContent(state.kind === "streaming" ? "Writing…" : "Running…"),
                 )
                 .onclick(() => modal.showModal()),
             modal,
         );
-    }));
-
-    return self;
 }
 
-const ToolCallsStyle = css`
+const ToolCallStyle = css`
     :scope {
-        display: block grid;
-        gap: 0.4em;
-        list-style: none;
-        justify-items: start;
+        display: contents;
     }
 
     button {
@@ -95,21 +94,6 @@ const ToolCallsStyle = css`
 
     .status.pending {
         animation: tool-pulse 1.4s ease-in-out infinite;
-    }
-
-    pre {
-        display: block flow-root;
-        max-block-size: 4.2em;
-        overflow-y: auto;
-        padding: 0.5em 0.7em;
-        border-radius: var(--radius);
-        background-color: #1d1d20;
-        color: #cdd6f4;
-        font-family: monospace;
-        font-size: var(--text-xs);
-        line-height: 1.4;
-        white-space: pre-wrap;
-        overflow-wrap: anywhere;
     }
 
     @keyframes tool-pulse {

@@ -11,19 +11,19 @@ async function handleModels(providerId?: string) {
         .select("provider.id")
         .execute();
 
-    const models = [];
-    for (const row of providers) {
-        const client = await ProviderClient.open(row.id);
-        const providerModels = client ? await client.models() : [];
-        for (const m of providerModels) {
-            models.push({
-                id: m.id,
-                name: m.name,
-                created: m.created,
-                providerId: row.id,
-            });
-        }
-    }
+    const models = await Promise.all(providers.map(async (provider) => {
+        const client = await ProviderClient.open(provider.id);
+        const models = await client?.models().catch((reason) => {
+            console.error(reason);
+            return [];
+        }) ?? [];
+        return models.map((model) => ({
+            id: model.id,
+            name: model.name,
+            created: model.created,
+            providerId: provider.id,
+        }));
+    })).then((result) => result.flat());
 
     return { status: "OK", data: models } as const;
 }

@@ -167,7 +167,7 @@ export class ProviderClient {
         }
 
         const json = await res.json() as { data: { id: string; object: string; created: number; owned_by: string }[] };
-        const models = json.data.map((model) => ({ id: model.id, name: model.id, created: model.created * 1000 }));
+        const models = json.data.map((model) => ({ id: model.id, name: model.id, created: (model.created || 0) * 1000 }));
         this.modelsCache = { models, expires: now + ProviderClient.MODELS_CACHE_TTL_MS };
         return models;
     }

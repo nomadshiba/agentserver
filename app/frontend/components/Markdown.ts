@@ -22,6 +22,7 @@ export function Markdown(md: string) {
 const MarkdownGlobalStyle = css`
     x-markdown {
         all: unset;
+        user-select: text;
         display: block flow-root;
         line-height: 1.6;
         font-size: 0.9em;

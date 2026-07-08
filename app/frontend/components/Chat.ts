@@ -1,6 +1,6 @@
 import { ref, tags, toChild } from "@purifyjs/core";
 import { ChatStreamOutput } from "~/backend/handlers/chats/messages/ChatStreamOutput.ts";
-import { api, ChatMessageResponse } from "~/frontend/api.ts";
+import { api, ChatMessage } from "~/frontend/api.ts";
 import { AgentPicker } from "~/frontend/components/AgentPicker.ts";
 import { ChatBox } from "~/frontend/components/ChatBox.ts";
 import { ChatNavigationItem } from "~/frontend/components/ChatNavigation.ts";
@@ -9,7 +9,7 @@ import { ChatAssistantMessageEmittter } from "~/frontend/events/ChatAssistantMes
 import { ChatToolMessageEmitter } from "~/frontend/events/ChatToolMessageEmitter.ts";
 import { css } from "~/frontend/kit/css.ts";
 import { PersistentSocket } from "~/frontend/utils/websocket.ts";
-import { ChatMessage } from "~/frontend/components/ChatMessage.ts";
+import { ChatBubble } from "~/frontend/components/ChatBubble.ts";
 
 const scroller = document.scrollingElement ?? document.body;
 
@@ -23,12 +23,12 @@ export async function Chat(chatId: string) {
 
     const log = ol().role("log").ariaLabel("Messages");
 
-    const addMessage = (message: ChatMessageResponse) => {
+    const addMessage = (message: ChatMessage) => {
         if (message.content.kind === "tool") return;
         const domId = message.id.slice(-8);
         const exist = log.$node.querySelector<HTMLLIElement>(`li#chat-message-${domId}`);
         if (exist) return;
-        log.append$(li().id(`chat-message-${domId}`).append$(ChatMessage(message)));
+        log.append$(li().id(`chat-message-${domId}`).append$(ChatBubble(message)));
     };
 
     self.$bind(() => {
@@ -60,6 +60,7 @@ export async function Chat(chatId: string) {
         socket.addEventListener("message", async (e) => {
             const blob = e.data as Blob;
             const [event] = ChatStreamOutput.decode(await blob.bytes());
+            console.log("socket", `kind:${event.kind}`, event.value);
 
             let shouldScroll = scroller.scrollHeight - scroller.scrollTop - innerHeight < 50;
 
@@ -77,6 +78,7 @@ export async function Chat(chatId: string) {
                     addMessage(message);
                 }
             } else if (event.kind === "stream") {
+                ChatAssistantMessageEmittter.emit(event.value.id, event);
                 addMessage({
                     id: event.value.id,
                     content: { kind: "assistant", value: { content: "", tool_calls: [] } },

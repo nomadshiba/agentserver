@@ -110,6 +110,7 @@ const GlobalStyle = css`
 
     dialog:where([open]) {
         all: unset;
+        user-select: text;
         position: fixed;
         inset-block: 0;
         inset-inline-end: 0;
