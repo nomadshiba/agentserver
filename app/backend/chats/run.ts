@@ -22,7 +22,7 @@ export async function runAgent(chat: ChatClient): Promise<void> {
             content: { kind: "assistant", value: { content: "", refusal: "", tool_calls: [] } },
             created: new Date(now),
         };
-        chat.pushMessage(message, { partial: true });
+        await chat.pushMessage(message, { partial: true });
 
         let providerDone: ProviderStream & { kind: "done" } | undefined;
 
@@ -37,12 +37,12 @@ export async function runAgent(chat: ChatClient): Promise<void> {
                 switch (kind) {
                     case "text": {
                         message.content.value.content += delta.value;
-                        chat.pushStream({ id: message.id, delta: { kind: "text", value: delta.value } });
+                        await chat.pushStream({ id: message.id, delta: { kind: "text", value: delta.value } });
                         break;
                     }
                     case "refusal": {
                         message.content.value.refusal += delta.value;
-                        chat.pushStream({ id: message.id, delta: { kind: "refusal", value: delta.value } });
+                        await chat.pushStream({ id: message.id, delta: { kind: "refusal", value: delta.value } });
                         break;
                     }
                     case "tool_call": {
@@ -64,7 +64,7 @@ export async function runAgent(chat: ChatClient): Promise<void> {
                         }
 
                         if (!cache) {
-                            chat.pushStream({
+                            await chat.pushStream({
                                 id: message.id,
                                 delta: { kind: "tool_call_new", value: { id: call.value.id, index: delta.value.index } },
                             });
@@ -81,7 +81,7 @@ export async function runAgent(chat: ChatClient): Promise<void> {
                         const summaryChanged = summary !== call.value.display.summary;
                         if (summaryChanged) call.value.display.summary = summary;
 
-                        chat.pushStream({
+                        await chat.pushStream({
                             id: message.id,
                             delta: {
                                 kind: "tool_call_delta",
@@ -109,7 +109,7 @@ export async function runAgent(chat: ChatClient): Promise<void> {
         } catch (reason) {
             console.error(reason);
             chat.messages.add(message);
-            chat.pushStream({
+            await chat.pushStream({
                 id: message.id,
                 delta: { kind: "done", value: { kind: "fail", value: String(reason) } },
             });
