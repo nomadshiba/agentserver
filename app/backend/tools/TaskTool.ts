@@ -94,7 +94,14 @@ export class TaskTool extends Tool {
         }
 
         try {
-            await subChat.pushProviderMessage(v7.generate(), { role: "user", content: args.prompt }, { wait: true });
+            await chat.pushMessage({
+                id: v7.generate(),
+                content: {
+                    kind: "user",
+                    value: { content: args.prompt },
+                },
+                created: new Date(),
+            }, { wait: true });
         } catch (reason) {
             return `Error running subagent: ${String(reason)}`;
         }

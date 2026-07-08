@@ -41,7 +41,6 @@ function toProviderChatMessage(message: ChatMessageOutput): ProviderChatMessage[
 
 export class ChatMessageBuffer {
     private messages: ChatMessageOutput[];
-    private messagesById: Map<string, ChatMessageOutput>;
 
     private prefixMessagesJson: string;
     private messagesJson: string;
@@ -49,7 +48,6 @@ export class ChatMessageBuffer {
 
     private constructor(inital: ChatMessageOutput[]) {
         this.messages = inital;
-        this.messagesById = new Map();
 
         this.prefixMessagesJson = "";
         this.messagesJson = JSON.stringify(inital.flatMap(toProviderChatMessage)).slice(1, -1);
@@ -69,15 +67,9 @@ export class ChatMessageBuffer {
     }
 
     public add(message: ChatMessageOutput): void {
-        if (this.messagesById.has(message.id)) throw new Error("Can't add to buffer twice");
-        this.messagesById.set(message.id, message);
         this.messages.push(message);
         if (this.messagesJson) this.messagesJson += ",";
         this.messagesJson += JSON.stringify(toProviderChatMessage(message)).slice(1, -1);
-    }
-
-    public getById(id: string): ChatMessageOutput | undefined {
-        return this.messagesById.get(id);
     }
 
     public iter(): ArrayIterator<ChatMessageOutput> {

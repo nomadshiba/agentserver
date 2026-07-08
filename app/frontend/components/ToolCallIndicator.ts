@@ -11,41 +11,43 @@ export function ToolCallIndicator(
 
     const { summary, content } = call.value.display;
 
-    const modal = dialog()
-        .$bind(ToolCallsModalStyle.useScope())
-        .onclick((event) => {
-            if (event.target === event.currentTarget) event.currentTarget.close();
-        })
-        .onclose((event) => event.currentTarget.remove())
-        .append$(
-            header().append$(
-                Markdown(summary),
-                button().type("button").ariaLabel("Close").textContent("×").onclick(() => modal.close()),
-            ),
-            section().ariaLabel("Call").append$(
-                span({ class: "label" }).textContent("Call"),
-                Markdown(content),
-            ),
-            section().ariaLabel("Result").append$(
-                span({ class: "label" }).textContent("Result"),
-                call.value.result
-                    ? Markdown(call.value.result.display)
-                    : span({ class: "status pending" }).textContent(options.streaming ? "Writing…" : "Running…"),
-            ),
-        );
+    const modal = !options.streaming
+        ? dialog()
+            .$bind(ToolCallsModalStyle.useScope())
+            .onclick((event) => {
+                if (event.target === event.currentTarget) event.currentTarget.close();
+            })
+            .onclose((event) => event.currentTarget.remove())
+            .append$(
+                header().append$(
+                    Markdown(summary),
+                    button().type("button").ariaLabel("Close").textContent("×").onclick(() => modal?.close()),
+                ),
+                section().ariaLabel("Call").append$(
+                    span({ class: "label" }).textContent("Call"),
+                    Markdown(content),
+                ),
+                section().ariaLabel("Result").append$(
+                    span({ class: "label" }).textContent("Result"),
+                    call.value.result ? Markdown(call.value.result.display) : span({ class: "status pending" }).textContent("Running…"),
+                ),
+            )
+        : undefined;
 
     const self = button().type("button")
+        .disabled(!modal)
         .$bind(ToolCallStyle.useScope())
         .append$(
             Markdown(summary),
-            call.value.result ? null : span({ class: "status pending" }).textContent(options.streaming ? "Writing…" : "Running…"),
+            call.value.result ? null : span({ class: "status pending" }).textContent(
+                options.streaming ? `Writing…${call.value.arguments.slice(-16)}` : "Running…",
+            ),
         )
         .onclick(() => {
+            if (!modal) return;
             document.body.append(modal.$node);
             modal.showModal();
         });
-
-    console.log(self);
 
     return self;
 }
@@ -53,6 +55,7 @@ export function ToolCallIndicator(
 const ToolCallStyle = css`
     :scope {
         all: unset;
+        cursor: pointer;
         display: block grid;
         gap: 0.3em;
         cursor: pointer;

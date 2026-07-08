@@ -5,6 +5,7 @@ import { ChatAssistantMessageEmittter } from "~/frontend/events/ChatAssistantMes
 import { css } from "~/frontend/kit/css.ts";
 import { relativeDate } from "~/frontend/utils/date.ts";
 import { ChatMessageOutput } from "~/backend/handlers/chats/messages/ChatMessageOutput.ts";
+import { ToolCall } from "~/backend/handlers/chats/messages/MessageContent.ts";
 
 const RELATIVE_STEPS = [
     60 * 60 * 1000,
@@ -54,8 +55,7 @@ export function ChatBubble(message: ChatMessageOutput) {
 
             const list = ul().ariaLabel("Tool calls").append$(content.value.tool_calls.map((call) => {
                 const domId = call.value.id.slice(-8);
-                return li().id(`tool-call-${domId}`)
-                    .append$(ToolCallIndicator(call, { streaming: false }));
+                return li().id(`tool-call-${domId}`).append$(ToolCallIndicator(call, { streaming: false }));
             }));
 
             const updateMarkdown = () => {
@@ -64,18 +64,16 @@ export function ChatBubble(message: ChatMessageOutput) {
                 markdown = newMarkdown;
             };
 
+            const updateCall = (call: ToolCall, streaming: boolean) => {
+                const domId = call.value.id.slice(-8);
+                const item = li().append$(ToolCallIndicator(call, { streaming })).id(`tool-call-${domId}`);
+                const exist = list.$node.querySelector(`#tool-call-${domId}`);
+                if (exist) exist.replaceWith(toChild(item));
+                else list.append$(item); // Visual order not that important
+            };
+
             self.$bind(() => {
                 const unsubscribe = ChatAssistantMessageEmittter.subscribe(message.id, (event) => {
-                    if (event.delta.kind === "done") {
-                        console.log(list);
-                        list.replaceChildren$(callBuffer.map((call) => {
-                            const domId = call.value.id.slice(-8);
-                            return li().id(`tool-call-${domId}`)
-                                .append$(ToolCallIndicator(call, { streaming: false }));
-                        }));
-                        return;
-                    }
-
                     if (event.delta.kind === "text") {
                         contentBuffer += event.delta.value;
                         return updateMarkdown();
@@ -86,31 +84,53 @@ export function ChatBubble(message: ChatMessageOutput) {
                         return updateMarkdown();
                     }
 
-                    if (event.delta.kind === "tool_call") {
+                    if (event.delta.kind === "tool_call_new") {
                         const delta = event.delta.value;
-                        const call = callBuffer[delta.index] ??= {
+                        const call = callBuffer[delta.index] = {
                             kind: "function",
                             value: {
                                 name: "",
                                 arguments: "",
                                 display: { summary: "", content: "" },
-                                id: "",
+                                id: delta.id,
                                 result: null,
                             },
                         };
+                        return updateCall(call, true);
+                    }
 
-                        if (delta.id) call.value.id = delta.id;
+                    if (event.delta.kind === "tool_call_delta") {
+                        const delta = event.delta.value;
+                        const call = callBuffer[delta.index]!;
+
                         if (delta.name) call.value.name += delta.name;
                         if (delta.arguments) call.value.arguments += delta.arguments;
-                        if (delta.display?.summary) call.value.display.summary = delta.display.summary;
-                        if (delta.display?.content) call.value.display.content = delta.display.content;
-                        if (delta.result) call.value.result = delta.result;
+                        if (delta.display) call.value.display.summary = delta.display.summary;
+                        return updateCall(call, true);
+                    }
 
-                        const domId = call.value.id.slice(-8);
-                        const item = li().append$(ToolCallIndicator(call, { streaming: !call.value.result })).id(`tool-call-${domId}`);
-                        const exist = list.$node.querySelector(`#tool-call-${domId}`);
-                        if (exist) exist.replaceWith(toChild(item));
-                        else list.append$(item); // Visual order not that important
+                    if (event.delta.kind === "tool_call_done") {
+                        const delta = event.delta.value;
+                        const call = callBuffer[delta.index]!;
+
+                        call.value.display.content = delta.display.content;
+                        return updateCall(call, false);
+                    }
+
+                    if (event.delta.kind === "tool_call_result") {
+                        const delta = event.delta.value;
+                        const call = callBuffer[delta.index]!;
+
+                        call.value.result = delta.result;
+                        return updateCall(call, false);
+                    }
+
+                    if (event.delta.kind === "done") {
+                        list.replaceChildren$(callBuffer.map((call) => {
+                            const domId = call.value.id.slice(-8);
+                            return li().id(`tool-call-${domId}`).append$(ToolCallIndicator(call, { streaming: false }));
+                        }));
+                        return;
                     }
                 });
 

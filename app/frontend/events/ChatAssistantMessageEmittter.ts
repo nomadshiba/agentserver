@@ -1,4 +1,4 @@
-import { ChatAssistantMessageDelta } from "~/backend/handlers/chats/messages/ChatAssistantMessageDelta.ts";
+import { ChatAssistantMessageStream } from "~/backend/handlers/chats/messages/ChatAssistantMessageStream.ts";
 import { EmitterTopic } from "~/libs/events/EmitterTopic.ts";
 
-export const ChatAssistantMessageEmittter = new EmitterTopic<ChatAssistantMessageDelta>();
+export const ChatAssistantMessageEmittter = new EmitterTopic<ChatAssistantMessageStream>();

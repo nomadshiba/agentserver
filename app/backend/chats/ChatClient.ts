@@ -1,23 +1,20 @@
 import { Codec } from "@nomadshiba/codec";
 import { v7 } from "@std/uuid";
+import { SelectQueryBuilder } from "kysely";
 import { jsonArrayFrom, jsonObjectFrom } from "kysely/helpers/sqlite";
 import { Agent } from "~/backend/agents/Agent.ts";
 import { agents, agentsByName } from "~/backend/agents/mod.ts";
 import { ChatMessageBuffer } from "~/backend/chats/ChatMessageBuffer.ts";
 import { runAgent } from "~/backend/chats/run.ts";
 import { db } from "~/backend/database/client.ts";
-import { ChatAssistantMessageDelta } from "~/backend/handlers/chats/messages/ChatAssistantMessageDelta.ts";
+import { ChatAssistantMessageStream } from "~/backend/handlers/chats/messages/ChatAssistantMessageStream.ts";
 import { ChatMessageOutput } from "~/backend/handlers/chats/messages/ChatMessageOutput.ts";
 import { ChatStreamOutput } from "~/backend/handlers/chats/messages/ChatStreamOutput.ts";
 import { renderToolCallContent, renderToolCallSummary, renderToolResult } from "~/backend/handlers/chats/messages/utils.ts";
-import {
-    ProviderAssistantMessageDelta,
-    ProviderChatMessage,
-    ProviderClient,
-    ProviderToolCall,
-} from "~/backend/providers/ProviderClient.ts";
+import { ProviderClient, ProviderToolCall } from "~/backend/providers/ProviderClient.ts";
 import { WeakRefMap } from "~/libs/collections/WeakRefMap.ts";
 import { Emitter } from "~/libs/events/Emitter.ts";
+import { DB } from "~/backend/database/generated/types.ts";
 
 type ChatEvent = Codec.InferInput<typeof ChatStreamOutput>;
 
@@ -162,10 +159,12 @@ export class ChatClient {
         this.messages.setPrefix([{ role: "system", content: agent.prompt }]);
     }
 
-    public async pushProviderMessageDelta(id: string, providerDelta: ProviderAssistantMessageDelta) {
+    public async pushStream(stream: ChatAssistantMessageStream) {
+        const { id, delta } = stream;
+        const { kind } = delta;
         const tx = await db.startTransaction().execute();
         try {
-            const message = await tx.selectFrom("chat_message").where("id", "=", id).selectAll().executeTakeFirst();
+            const message = await tx.selectFrom("chat_message").where("id", "=", id).select("role").executeTakeFirst();
             if (!message) {
                 throw new Error(`Can't add delta to unknown message id: ${id}`);
             }
@@ -173,133 +172,64 @@ export class ChatClient {
                 throw new Error(`Can't add delta to message id: ${id}, because it has the role: ${message.role}`);
             }
 
-            switch (providerDelta.kind) {
-                case "done": {
-                    await tx.updateTable("chat_message_role_assistant").where("id", "=", id).set({ partial: 0 }).execute();
-                    const result = await tx.selectFrom("chat_message_role_assistant").where("id", "=", id)
-                        .selectAll("chat_message_role_assistant")
-                        .select((eb) =>
-                            eb.selectFrom("chat_message")
-                                .whereRef("chat_message.id", "=", "chat_message_role_assistant.id")
-                                .select("created")
-                                .as("created")
-                        )
-                        .select((eb) => [
-                            jsonArrayFrom(
-                                eb.selectFrom("tool_call")
-                                    .whereRef("tool_call.chat_message_id", "=", "chat_message_role_assistant.id")
-                                    .orderBy("tool_call.index", "asc")
-                                    .select([
-                                        "tool_call.call_id",
-                                        "tool_call.name",
-                                        "tool_call.arguments",
-                                        "tool_call.result",
-                                    ]),
-                            ).as("ToolCalls"),
-                        ]).executeTakeFirstOrThrow();
-                    this.messages.add({
-                        id: result.id,
-                        content: {
-                            kind: "assistant",
-                            value: {
-                                content: result.content,
-                                refusal: result.refusal,
-                                tool_calls: result.ToolCalls.map((call) => {
-                                    const providerCall: ProviderToolCall = {
-                                        id: call.call_id,
-                                        type: "function",
-                                        function: {
-                                            name: call.name,
-                                            arguments: call.arguments,
-                                        },
-                                    };
-                                    return {
-                                        kind: "function",
-                                        value: {
-                                            id: call.call_id,
-                                            name: call.name,
-                                            arguments: call.arguments,
-                                            display: {
-                                                summary: renderToolCallSummary(providerCall),
-                                                content: renderToolCallContent(providerCall),
-                                            },
-                                            result: call.result
-                                                ? { content: call.result, display: renderToolResult(call.name, call.result) }
-                                                : null,
-                                        },
-                                    };
-                                }),
-                            },
-                        },
-                        created: new Date(result.created!),
-                    });
-                    const delta: ChatAssistantMessageDelta = {
-                        id,
-                        delta: { kind: "done", value: { kind: "provider", value: providerDelta.value.finish_reason } },
-                    };
-                    this.emitter.emit({ kind: "delta", value: delta });
-                    break;
-                }
+            switch (kind) {
                 case "text": {
                     await tx.updateTable("chat_message_role_assistant").where("id", "=", id).set({
-                        content: (eb) => eb(eb.ref("chat_message_role_assistant.content"), "||", providerDelta.value),
+                        content: (eb) => eb(eb.ref("chat_message_role_assistant.content"), "||", delta.value),
                     }).execute();
-                    const delta: ChatAssistantMessageDelta = { id, delta: { kind: "text", value: providerDelta.value } };
-                    this.emitter.emit({ kind: "delta", value: delta });
+                    this.emitter.emit({ kind: "stream", value: stream });
                     break;
                 }
                 case "refusal": {
                     await tx.updateTable("chat_message_role_assistant").where("id", "=", id).set({
-                        refusal: (eb) => eb(eb.ref("chat_message_role_assistant.refusal"), "||", providerDelta.value),
+                        refusal: (eb) => eb(eb.ref("chat_message_role_assistant.refusal"), "||", delta.value),
                     }).execute();
-                    const delta: ChatAssistantMessageDelta = { id, delta: { kind: "refusal", value: providerDelta.value } };
-                    this.emitter.emit({ kind: "delta", value: delta });
+                    this.emitter.emit({ kind: "stream", value: stream });
                     break;
                 }
-                case "tool_call": {
-                    const partial = await tx.insertInto("tool_call")
+                case "tool_call_new": {
+                    await tx.insertInto("tool_call")
                         .values({
                             chat_message_id: id,
-                            index: providerDelta.value.index,
-                            call_id: v7.generate(),
-                            name: providerDelta.value.name ?? "",
-                            arguments: providerDelta.value.arguments ?? "",
-                        })
-                        .onConflict((oc) =>
-                            oc.columns(["chat_message_id", "index"]).doUpdateSet({
-                                name: (eb) => eb(eb.ref("name"), "||", eb.ref("excluded.name")),
-                                arguments: (eb) => eb(eb.ref("arguments"), "||", eb.ref("excluded.arguments")),
-                            })
-                        )
-                        .returning([
-                            "call_id as call_id",
-                            "name as name",
-                            "arguments as arguments",
-                        ])
-                        .executeTakeFirstOrThrow();
-
-                    const call: ProviderToolCall = {
-                        id: partial.call_id,
-                        type: "function",
-                        function: { name: partial.name, arguments: partial.arguments },
-                    };
-
-                    const delta: ChatAssistantMessageDelta = {
-                        id,
-                        delta: {
-                            kind: "tool_call",
-                            value: {
-                                index: providerDelta.value.index,
-                                id: partial.call_id,
-                                name: providerDelta.value.name,
-                                arguments: providerDelta.value.arguments,
-                                display: { summary: renderToolCallSummary(call) },
-                            },
-                        },
-                    };
-                    this.emitter.emit({ kind: "delta", value: delta });
+                            index: delta.value.index,
+                            call_id: delta.value.id,
+                            name: "",
+                            arguments: "",
+                        }).executeTakeFirstOrThrow();
+                    this.emitter.emit({ kind: "stream", value: stream });
                     break;
                 }
+                case "tool_call_delta": {
+                    await tx.updateTable("tool_call")
+                        .where("chat_message_id", "=", stream.id)
+                        .where("index", "=", delta.value.index)
+                        .set((eb) => ({
+                            name: eb(eb.ref("name"), "||", delta.value.name),
+                            arguments: eb(eb.ref("arguments"), "||", delta.value.arguments),
+                        })).executeTakeFirstOrThrow();
+                    this.emitter.emit({ kind: "stream", value: stream });
+                    break;
+                }
+                case "tool_call_done": {
+                    this.emitter.emit({ kind: "stream", value: stream });
+                    break;
+                }
+                case "tool_call_result": {
+                    await tx.updateTable("tool_call")
+                        .where("chat_message_id", "=", id)
+                        .where("index", "=", delta.value.index)
+                        .set({ result: delta.value.result.content })
+                        .executeTakeFirstOrThrow();
+                    this.emitter.emit({ kind: "stream", value: stream });
+                    break;
+                }
+                case "done": {
+                    await tx.updateTable("chat_message_role_assistant").where("id", "=", id).set({ partial: 0 }).execute();
+                    this.emitter.emit({ kind: "stream", value: stream });
+                    break;
+                }
+                default:
+                    throw new Error(`Unhandled stream kind: ${kind satisfies never}`);
             }
 
             await tx.commit().execute();
@@ -309,74 +239,40 @@ export class ChatClient {
         }
     }
 
-    public async pushProviderMessage(id: string, providerMessage: ProviderChatMessage, options?: { wait?: boolean }) {
-        const { role } = providerMessage;
-        const now = v7.extractTimestamp(id);
-
+    public async pushMessage(message: ChatMessageOutput, options?: { wait?: boolean; partial?: boolean }) {
+        const { id, content } = message;
+        const { kind } = content;
         const tx = await db.startTransaction().execute();
 
         try {
-            await tx.insertInto("chat_message")
-                .values({ id, chat_id: this.id, role: providerMessage.role, created: now })
-                .execute();
+            await tx.insertInto("chat_message").values({ id, chat_id: this.id, role: kind, created: message.created.getTime() }).execute();
 
-            if (role === "system") {
-                await tx.insertInto("chat_message_role_system").values({ id, content: providerMessage.content }).execute();
-                const message: ChatMessageOutput<"system"> = {
-                    id,
-                    content: { kind: "system", value: { content: providerMessage.content } },
-                    created: new Date(now),
-                };
-                this.messages.add(message);
+            if (kind === "system") {
+                await tx.insertInto("chat_message_role_system").values({ id, content: content.value.content }).execute();
+                if (!options?.partial) this.messages.add(message);
                 this.emitter.emit({ kind: "message", value: message });
-            } else if (role === "user") {
-                await tx.insertInto("chat_message_role_user").values({ id, content: providerMessage.content }).execute();
-                const message: ChatMessageOutput<"user"> = {
-                    id,
-                    content: { kind: "user", value: { content: providerMessage.content } },
-                    created: new Date(now),
-                };
-                this.messages.add(message);
+            } else if (kind === "user") {
+                await tx.insertInto("chat_message_role_user").values({ id, content: content.value.content }).execute();
+                if (!options?.partial) this.messages.add(message);
                 this.emitter.emit({ kind: "message", value: message });
-            } else if (role === "assistant") {
+            } else if (kind === "assistant") {
                 await tx.insertInto("chat_message_role_assistant")
-                    .values({ id, content: providerMessage.content ?? "", refusal: providerMessage.refusal ?? "", partial: 0 })
+                    .values({ id, content: content.value.content, refusal: content.value.refusal, partial: 0 })
                     .execute();
-
-                const message: ChatMessageOutput<"assistant"> = {
-                    id,
-                    content: { kind: "assistant", value: { content: "", refusal: "", tool_calls: [] } },
-                    created: new Date(now),
-                };
+                if (content.value.tool_calls.length) {
+                    await tx.insertInto("tool_call").values(content.value.tool_calls.map((call, index) => ({
+                        index,
+                        chat_message_id: message.id,
+                        call_id: call.value.id,
+                        name: call.value.name,
+                        arguments: call.value.arguments,
+                        result: call.value.result?.content,
+                    }))).execute();
+                }
+                if (!options?.partial) this.messages.add(message);
                 this.emitter.emit({ kind: "message", value: message });
-            } else if (role === "tool") {
-                console.log(providerMessage);
-                const { chat_message_id, index, name } = await tx.updateTable("tool_call")
-                    .where("call_id", "=", providerMessage.tool_call_id)
-                    .set({ result: providerMessage.content })
-                    .returning([
-                        "chat_message_id as chat_message_id",
-                        "index as index",
-                        "name as name",
-                    ])
-                    .executeTakeFirstOrThrow();
-
-                const delta: ChatAssistantMessageDelta = {
-                    id: chat_message_id,
-                    delta: {
-                        kind: "tool_call",
-                        value: {
-                            index,
-                            result: {
-                                content: providerMessage.content,
-                                display: renderToolResult(name, providerMessage.content),
-                            },
-                        },
-                    },
-                };
-                this.emitter.emit({ kind: "delta", value: delta });
             } else {
-                throw new Error(`Unknown message role: ${role satisfies never}`);
+                throw new Error(`Unknown message role: ${kind satisfies never}`);
             }
 
             await tx.commit().execute();
@@ -385,17 +281,24 @@ export class ChatClient {
             throw reason;
         }
 
-        if (providerMessage.role === "user") {
+        if (kind === "user") {
             const promise = runAgent(this);
             if (options?.wait) await promise;
         }
     }
 }
 
-async function messagesFromDatabase(chatId: string) {
-    const rows = await db.selectFrom("chat_message")
+export async function messagesFromDatabase(
+    chatId: string,
+    filter?: (query: SelectQueryBuilder<DB, "chat_message", {}>) => SelectQueryBuilder<DB, "chat_message", {}>,
+) {
+    const query = db.selectFrom("chat_message")
         .where("chat_message.chat_id", "=", chatId)
-        .orderBy("chat_message.created", "asc")
+        .orderBy("chat_message.created", "asc");
+
+    filter?.(query);
+
+    const rows = await query
         .select([
             "chat_message.id",
             "chat_message.chat_id",

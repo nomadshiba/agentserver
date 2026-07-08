@@ -59,7 +59,7 @@ export async function Chat(chatId: string) {
                 const message = event.value;
                 if (message.content.kind === "user") shouldScroll = true;
                 addMessage(message);
-            } else if (event.kind === "delta") {
+            } else if (event.kind === "stream") {
                 ChatAssistantMessageEmittter.emit(event.value.id, event.value);
             }
 

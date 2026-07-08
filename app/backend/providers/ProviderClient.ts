@@ -74,7 +74,7 @@ export class ProviderClient {
         return output.choices[0].message;
     }
 
-    async *chatStream(input: ProviderChatInput): AsyncIterable<ProviderAssistantMessageDelta> {
+    async *chatStream(input: ProviderChatInput): AsyncIterable<ProviderStream> {
         const body = {
             model: input.model,
             messages: input.messages,
@@ -185,7 +185,7 @@ export type ProviderChatInput = {
     tool_choice?: "none" | "auto" | "required" | { type: "function"; function: { name: string } };
 };
 
-export type ProviderAssistantMessageDelta =
+export type ProviderStream =
     | { kind: "text"; value: string }
     | { kind: "refusal"; value: string }
     | { kind: "tool_call"; value: { index: number; id?: string; name?: string; arguments?: string } }
