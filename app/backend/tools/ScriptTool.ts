@@ -35,24 +35,19 @@ export class ScriptTool extends Tool {
             function: {
                 name: "script",
                 description: [
-                    `Run TypeScript code in a sandboxed Deno Worker.`,
+                    `Run TypeScript in a sandboxed Deno Worker. Write \`self.onmessage = async (e) => { ... }\` and call \`self.postMessage(result)\` exactly once to return. Returns the posted value as a string.`,
                     `Permissions: ${JSON.stringify(this.permissions, null, " ")}.`,
-                    `Use \`self.onmessage = (e) => {...}\` and call \`self.postMessage(result)\` to return a value.`,
-                    `Prefer \`use\` to reuse previous tool results instead of recomputing or re-fetching them — it's cheaper and avoids duplicated work.`,
 
-                    this.permissions.import ? `You can also import allowed external modules using dynamic \`await import(...)\`` : null,
-                    this.permissions.net ? `You have internet access with the permission \`net\`` : null,
+                    `Results from earlier tool calls you pass in \`use\` arrive on \`e.data\`, keyed by exact tool_call_id — NOT merged into \`e.data\` directly. If \`use: ["call_abc123"]\` and that call returned \`{"notes": [...]}\`, read it as \`e.data["call_abc123"].notes\`; \`e.data.notes\` is undefined. If \`use\` is empty/omitted, \`e.data\` is \`{}\`. Prefer \`use\` over recomputing or re-fetching values you already have.`,
 
-                    `IMPORTANT: each requested result is keyed by its exact tool_call_id, NOT merged/flattened into e.data directly. ` +
-                    `Example: if you pass \`use: ["call_abc123"]\` and that earlier tool call's raw result was the JSON \`{"notes": [...]}\`, ` +
-                    `then inside the worker you must access it as \`e.data["call_abc123"].notes\` — \`e.data.notes\` will be undefined. ` +
-                    `If \`use\` is empty/omitted, \`e.data\` is just \`{}\`.`,
+                    `Your other tools are on the global \`tools\` object as async functions: \`await tools.someToolName(args)\`, where \`args\` matches that tool's normal parameters schema. Each resolves with the tool's result (JSON-parsed if possible, else raw string) or rejects with an Error. These run for real against the live chat, count toward this run's \`timeout\`, and don't appear as separate messages — only this script's posted result does. \`tools\` is reserved; don't shadow it. You can call \`script\` recursively.`,
 
-                    `You can call any of your tools (including \`script\` itself, e.g. for nested/recursive runs) from inside the worker: they're exposed on the global \`tools\` object as async functions, e.g. \`const result = await tools.someToolName(args)\`. ` +
-                    `\`args\` is whatever object that tool's own parameters schema expects (same schema you already see for it as a top-level tool). Each call returns a Promise that resolves with the tool's result (JSON-parsed if possible, otherwise the raw string) or rejects with an Error if the tool call fails. ` +
-                    `These calls run for real (against the live chat), count toward this worker's own \`timeout\`, and don't show up as separate messages in the conversation — only this script's own final posted result does. \`tools\` is a reserved global name, don't shadow it.`,
+                    this.permissions.import
+                        ? `Import remote modules with dynamic \`await import(...)\`; specifiers must resolve to the allowed hosts above, and list them in \`preload\` too.`
+                        : `Module imports are disabled — inline everything you need.`,
+                    this.permissions.net ? `Network access is enabled per the permissions above.` : `No network access.`,
 
-                    `Returns the posted value as a string.`,
+                    `If your code might throw, wrap it and \`postMessage\` a structured error (e.g. \`{ error: "..." }\`) so you can react to it — an uncaught throw just fails the run opaquely.`,
                 ].filter(Boolean).join("\n\n"),
                 parameters: {
                     type: "object",
@@ -60,36 +55,35 @@ export class ScriptTool extends Tool {
                         summary: {
                             type: "string",
                             description:
-                                'A short (3-6 word) human-readable summary of what this script call does, e.g. "list open PRs" or "parse CSV and sum totals". Shown as this call\'s label in the UI, so keep it short and descriptive.',
+                                'Short (3-6 word) human-readable label for this call, e.g. "list open PRs" or "parse CSV and sum totals". Shown in the UI.',
                         },
                         code: {
                             type: "string",
                             description: [
-                                `TypeScript code to run in the worker. Use \`self.onmessage = (e) => {...}\` and call \`self.postMessage(result)\` to return.`,
-                                `\`e.data\` is an object mapping each requested tool_call_id (from \`use\`) to its result (pre-parsed if JSON) — access as \`e.data["<tool_call_id>"]\`, never assume fields are merged into \`e.data\` directly.`,
-                                `Inline any other values directly in the code.`,
-                                `Call your other tools with \`await tools.<toolName>(args)\` (returns a Promise). \`tools\` is a reserved global name.`,
+                                `TypeScript to run. \`self.onmessage = async (e) => { ... }\`, then \`self.postMessage(result)\` once to return.`,
+                                `\`e.data\` maps each tool_call_id from \`use\` to its result (pre-parsed if JSON) — access as \`e.data["<tool_call_id>"]\`; fields are never merged into \`e.data\` directly. Inline any other values.`,
+                                `Call other tools with \`await tools.<toolName>(args)\`. \`tools\` is reserved.`,
                                 this.permissions.import &&
-                                `You may \`import\` remote modules — try \`jsr:\` first, then \`npm:\`; fall back to \`https://esm.sh/...\` if the package isn't on jsr/npm or if \`npm:\` errors with Node-compat issues. List the exact specifiers in \`preload\` too.`,
+                                `Imports must resolve to the allowed hosts; list them in \`preload\` too.`,
                             ].filter(Boolean).join(" "),
                         },
                         use: {
                             type: "array",
                             items: { type: "string" },
                             description:
-                                'IDs (tool_call_id) of previous tool results to make available as `e.data["<tool_call_id>"]` (pre-parsed if JSON). Prefer this over recomputing values you already have.',
+                                'tool_call_ids of earlier results to expose as `e.data["<tool_call_id>"]` (pre-parsed if JSON). Prefer this over recomputing.',
                         },
                         preload: {
                             type: "array",
                             items: { type: "string" },
-                            description:
-                                "Import specifiers used by `code` to fetch/cache before running (this warm-up time is NOT counted against `timeout`). " +
-                                "Try `jsr:@scope/pkg` first, then `npm:package`; fall back to `https://esm.sh/package` if the package isn't on jsr/npm, or if `npm:` fails due to Node-compat issues (native bindings, CJS/ESM interop, missing builtins) — esm.sh's pre-converted ESM build often works in those cases, it's just slower to resolve.",
+                            description: this.permissions.import
+                                ? "Import specifiers used by `code`, fetched/cached before the run (this warm-up is NOT counted against `timeout`). Must resolve to the allowed hosts."
+                                : "Unused — module imports are disabled.",
                         },
                         timeout: {
                             type: "number",
                             description:
-                                "Timeout in seconds for the worker's own startup+execution (after any `preload` warm-up, which doesn't count). You must always pick a value yourself — there is no default. If a run times out, retry with a longer timeout.",
+                                "Seconds for the worker's startup+execution (after any `preload` warm-up, which doesn't count). No default — always set one. A few seconds for pure compute; more when awaiting network or nested tool calls. On timeout, retry higher.",
                         },
                     },
                     required: ["summary", "code", "timeout"],
