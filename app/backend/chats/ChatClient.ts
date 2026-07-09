@@ -75,6 +75,7 @@ export class ChatClient {
         const chat = await db.selectFrom("chat").where("id", "=", chatId).selectAll().executeTakeFirst();
         const agent = (chat?.agent ? agentsByName.get(chat?.agent) : undefined) ?? agents[0];
         const messageBuffer = ChatMessageBuffer.create();
+        messageBuffer.setPrefix([{ role: "system", content: agent.prompt }]);
 
         const rows = await messagesFromDatabase(chatId);
         for (const row of rows) {

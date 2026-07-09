@@ -31,6 +31,7 @@ export async function runAgent(chat: ChatClient): Promise<void> {
                 model: model.name,
                 messages: chat.messages,
                 tools: toolDefinitions,
+                reasoning_effort: "none",
             });
             for await (const delta of stream) {
                 const { kind } = delta;
@@ -43,6 +44,10 @@ export async function runAgent(chat: ChatClient): Promise<void> {
                     case "refusal": {
                         message.content.value.refusal += delta.value;
                         await chat.pushStream({ id: message.id, delta: { kind: "refusal", value: delta.value } });
+                        break;
+                    }
+                    case "reasoning": {
+                        // TODO: handle it
                         break;
                     }
                     case "tool_call": {

@@ -1,6 +1,8 @@
 export type PromiseOrValue<T> = Promise<T> | T;
 // deno-lint-ignore no-explicit-any
 export type _ = any;
+// deno-lint-ignore ban-types
+export type Suggestion<T extends string> = T | (string & {});
 
 export type OmitByValue<T, V> = {
     [K in keyof T as T[K] extends V ? never : K]: T[K];

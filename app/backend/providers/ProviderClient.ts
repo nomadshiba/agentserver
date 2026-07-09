@@ -1,6 +1,7 @@
 import { db } from "~/backend/database/client.ts";
 import { WeakRefMap } from "~/libs/collections/WeakRefMap.ts";
 import { ChatMessageBuffer } from "~/backend/chats/ChatMessageBuffer.ts";
+import { Suggestion } from "~/types.ts";
 
 export class ProviderClient {
     public readonly id: string;
@@ -122,21 +123,22 @@ export class ProviderClient {
                         const data = line.slice(6);
                         if (data === "[DONE]") continue;
                         try {
-                            const chunk = JSON.parse(data) as ProviderChatStreamChunk;
+                            const chunk = JSON.parse(data) as ProviderChatStream;
                             const choice = chunk.choices[0];
                             if (choice.finish_reason) finishReason = choice.finish_reason;
                             const delta = choice.delta;
                             if (delta.content) yield { kind: "text", value: delta.content };
                             if (delta.refusal) yield { kind: "refusal", value: delta.refusal };
+                            if (delta.reasoning) yield { kind: "reasoning", value: delta.reasoning };
                             if (delta.tool_calls) {
-                                for (const tc of delta.tool_calls) {
+                                for (const call of delta.tool_calls) {
                                     yield {
                                         kind: "tool_call",
                                         value: {
-                                            index: tc.index,
-                                            id: tc.id,
-                                            name: tc.function?.name,
-                                            arguments: tc.function?.arguments,
+                                            index: call.index,
+                                            id: call.id,
+                                            name: call.function?.name,
+                                            arguments: call.function?.arguments,
                                         },
                                     };
                                 }
@@ -177,18 +179,31 @@ export class ProviderClient {
 
 export type ProviderModel = { name: string; id: string; created: number };
 
+export type ProviderReasoningEffort = Suggestion<
+    | "none"
+    | "minimal" // OpenAI-style
+    | "low"
+    | "medium"
+    | "high"
+    | "max" // glm-5.2 on Ollama
+>;
+
+export type ProviderToolChoice = "none" | "auto" | "required" | { type: "function"; function: { name: string } };
+
 export type ProviderChatInput = {
     model: string;
     messages: ChatMessageBuffer;
+    reasoning_effort: ProviderReasoningEffort;
     temperature?: number;
     max_tokens?: number;
     tools?: ProviderToolDefinition[];
-    tool_choice?: "none" | "auto" | "required" | { type: "function"; function: { name: string } };
+    tool_choice?: ProviderToolChoice;
 };
 
 export type ProviderStream =
     | { kind: "text"; value: string }
     | { kind: "refusal"; value: string }
+    | { kind: "reasoning"; value: string }
     | { kind: "tool_call"; value: { index: number; id?: string; name?: string; arguments?: string } }
     | { kind: "done"; value: { finish_reason: string | null } };
 
@@ -245,10 +260,11 @@ type ProviderChatResponse<TRole extends ProviderChatMessage["role"] = ProviderCh
     };
 };
 
-type ProviderChatStreamChunkDelta = {
+type ProviderChatStreamDelta = {
     role?: "assistant";
     content?: string | null;
     refusal?: string | null;
+    reasoning?: string | null;
     tool_calls?: {
         index: number;
         id?: string;
@@ -257,14 +273,14 @@ type ProviderChatStreamChunkDelta = {
     }[];
 };
 
-type ProviderChatStreamChunk = {
+type ProviderChatStream = {
     id: string;
     object: string;
     created: number;
     model: string;
     choices: [{
         index: number;
-        delta: ProviderChatStreamChunkDelta;
+        delta: ProviderChatStreamDelta;
         finish_reason: string | null;
     }];
 };
