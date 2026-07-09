@@ -40,6 +40,9 @@ export class ScriptTool extends Tool {
                     `Use \`self.onmessage = (e) => {...}\` and call \`self.postMessage(result)\` to return a value.`,
                     `Prefer \`use\` to reuse previous tool results instead of recomputing or re-fetching them — it's cheaper and avoids duplicated work.`,
 
+                    this.permissions.import ? `You can also import allowed external modules using dynamic \`await import(...)\`` : null,
+                    this.permissions.net ? `You have internet access with the permission \`net\`` : null,
+
                     `IMPORTANT: each requested result is keyed by its exact tool_call_id, NOT merged/flattened into e.data directly. ` +
                     `Example: if you pass \`use: ["call_abc123"]\` and that earlier tool call's raw result was the JSON \`{"notes": [...]}\`, ` +
                     `then inside the worker you must access it as \`e.data["call_abc123"].notes\` — \`e.data.notes\` will be undefined. ` +

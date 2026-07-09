@@ -48,6 +48,7 @@ export async function runAgent(chat: ChatClient): Promise<void> {
                     }
                     case "reasoning": {
                         // TODO: handle it
+                        console.log("reasoning", delta.value);
                         break;
                     }
                     case "tool_call": {

@@ -7,13 +7,6 @@ import { ToolCall } from "~/backend/handlers/chats/messages/MessageContent.ts";
 
 const CODE_BLOCK = "```";
 
-/**
- * Launches a subagent: a fresh chat (its own isolated context/history) running one of the
- * `subagent`/`all`-kind agents, seeded with a task prompt and run to completion, returning its
- * final answer as this tool's result. The subagent's chat is linked back to this tool call via
- * `chat.root_tool_call_id`, so it doesn't show up in the top-level chat list (`root_tool_call_id is null`)
- * but stays discoverable/inspectable as a child of the call that spawned it.
- */
 export class TaskTool extends Tool {
     private availableAgents() {
         return agents.filter((agent) => agent.kind === "subagent" || agent.kind === "all");

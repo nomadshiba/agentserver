@@ -37,9 +37,10 @@ export async function Chat(chatId: string) {
         socket.addEventListener("open", () => {
             // TODO: Don't download all of the history at once
             api.fetch("GET /v1/chats/:chatId/messages", { params: { pathname: { chatId }, search: {} } }).then((messages) => {
+                log.replaceChildren();
                 const shouldScroll = scroller.scrollHeight - scroller.scrollTop - innerHeight < 50;
                 for (const message of messages) {
-                    console.log(message);
+                    console.log("message", message);
                     addMessage(message);
                 }
                 if (shouldScroll) {

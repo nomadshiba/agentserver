@@ -81,6 +81,7 @@ export class ProviderClient {
                 model: input.model,
                 temperature: input.temperature,
                 max_tokens: input.max_tokens,
+                reasoning_effort: input.reasoning_effort,
                 stream: true,
                 tools: input.tools,
                 tool_choice: input.tool_choice,

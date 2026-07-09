@@ -46,7 +46,7 @@ await db.schema.createTable("chat_message_role_assistant").ifNotExists()
 
 await db.schema.createTable("tool_call").ifNotExists()
     .addColumn("call_id", "text", (col) => col.notNull().unique())
-    .addColumn("chat_message_id", "text", (col) => col.notNull().references("chat_message_role_assistant.id"))
+    .addColumn("chat_message_id", "text", (col) => col.notNull().references("chat_message_role_assistant.id").onDelete("cascade"))
     .addColumn("index", "integer", (col) => col.notNull())
     .addColumn("name", "text", (col) => col.notNull())
     .addColumn("arguments", "text", (col) => col.notNull())

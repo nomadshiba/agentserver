@@ -25,7 +25,8 @@ export class ChatClient {
         public agent: Agent,
         public model: { name: string; provider: ProviderClient } | undefined,
         public readonly messages: ChatMessageBuffer,
-    ) {}
+    ) {
+    }
 
     public static async create(
         name: string,

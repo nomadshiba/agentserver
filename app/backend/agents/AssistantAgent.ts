@@ -1,6 +1,5 @@
 import { Agent } from "~/backend/agents/Agent.ts";
 import { ScriptTool } from "~/backend/tools/ScriptTool.ts";
-import { TaskTool } from "~/backend/tools/TaskTool.ts";
 
 export const AssistantAgent = {
     name: "Assistant",
@@ -18,6 +17,6 @@ export const AssistantAgent = {
                 "deno.land",
             ],
         }),
-        new TaskTool(),
+        // new TaskTool(),
     ],
 } as const satisfies Agent;
