@@ -1,7 +1,9 @@
+import { _ } from "~/types.ts";
+
 const DYNAMIC_IMPORT_PREFIX = "import(";
 const IMPORT_ALLOWED_REGEX = /^[\x21-\x7E]+$/;
 const STATIC_ESM = /^\s*(?:import(?!\()|export)\b/;
-globalThis.require = null as never; // FUCK YOU FOR RUINING DENO, FUCKING NODE.JS ADDICTS, INJECTING NODE.JS GARBAGE EVERYWHERE
+(globalThis as _).require = null as never; // FUCK YOU FOR RUINING DENO, FUCKING NODE.JS ADDICTS, INJECTING NODE.JS GARBAGE EVERYWHERE
 
 export function assertSafeImports(code: string, allowedHosts: string[]): void {
     const allow = new Set(allowedHosts.map((h) => h.toLowerCase()));

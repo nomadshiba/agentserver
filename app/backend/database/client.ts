@@ -1,5 +1,5 @@
 import { Database } from "@db/sqlite";
-import { Kysely } from "@kysely/kysely";
+import { Kysely } from "kysely";
 import { DenoSqlite3Dialect } from "@marshift/kysely-deno-sqlite3";
 import { dirname, join } from "@std/path";
 import type { DB } from "./generated/types.ts";
