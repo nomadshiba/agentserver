@@ -64,29 +64,30 @@ const MarkdownStyle = css`
         margin-block: 1em;
     }
 
-    pre {
-        background: #1d1d20;
+    code {
+        background-color: #35353d;
+        padding: 0.1em 0.35em;
+        border-radius: 0.25em;
+        font-family: monospace;
+        font-size: 0.9em;
+    }
+
+    pre:has(code) {
+        background-color: #1d1d20;
         color: #cdd6f4;
         padding: 0.75em 1em;
 
         border-radius: 0.5em;
         line-height: 1.5;
         margin-block: 0.75em;
-    }
-    pre:has(code) {
         overflow-x: auto;
+
+        code {
+            background-color: transparent;
+            padding: 0;
+        }
     }
-    pre code {
-        background: none;
-        padding: 0;
-    }
-    code {
-        background: #1d1d20;
-        padding: 0.1em 0.35em;
-        border-radius: 0.25em;
-        font-family: monospace;
-        font-size: 0.9em;
-    }
+
     table {
         border-collapse: collapse;
         margin: 0.75em 0;

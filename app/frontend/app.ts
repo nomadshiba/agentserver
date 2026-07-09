@@ -1,23 +1,18 @@
-import { sync, tags, toChild } from "@purifyjs/core";
-import { ChatNavigation } from "~/frontend/components/ChatNavigation.ts";
-import { awaited } from "~/frontend/kit/awaited.ts";
+import { tags, toChild } from "@purifyjs/core";
 import { Chat } from "~/frontend/components/Chat.ts";
+import { ChatNavigation } from "~/frontend/components/ChatNavigation.ts";
 import { NewChat } from "~/frontend/components/NewChat.ts";
-import { unroll } from "~/frontend/kit/unroll.ts";
+import { awaited } from "~/frontend/kit/awaited.ts";
 import { useReplaceChildren } from "~/frontend/kit/bind.ts";
 import { css } from "~/frontend/kit/css.ts";
+import { unroll } from "~/frontend/kit/unroll.ts";
+import { chatId } from "~/frontend/url.ts";
 
 function App() {
     const { body, header, main, progress } = tags;
     const self = body().$bind(AppStyle.useScope());
 
     const navigation = awaited(ChatNavigation(), progress());
-
-    const chatId = sync<string>((set) => {
-        set(location.hash);
-        const interval = setInterval(() => set(location.hash), 100);
-        return () => clearInterval(interval);
-    }).derive((hash) => hash.slice(1) || undefined);
 
     const chat = chatId.derive((chatId) => awaited(chatId ? Chat(chatId) : NewChat(), progress())).pipe(unroll);
 

@@ -2,6 +2,7 @@ import { tags } from "@purifyjs/core";
 import { api } from "~/frontend/api.ts";
 import { css } from "~/frontend/kit/css.ts";
 import { ProviderManager } from "~/frontend/components/ProviderManager.ts";
+import { chatId } from "~/frontend/url.ts";
 
 export async function ChatNavigation() {
     const { nav, ul } = tags;
@@ -18,19 +19,27 @@ export async function ChatNavigation() {
 export function NewChatLink() {
     const { a } = tags;
     // Bare `#` clears location.hash, which routes App() back to the NewChat view.
-    return a().href("#").id("new-chat").textContent("+ New Chat");
+    return a().href("#")
+        .id("new-chat")
+        .ariaCurrent(chatId.derive((id) => id ? null : "page"))
+        .textContent("+ New Chat");
 }
 
 export function ChatNavigationItem(chat: { id: string; name: string }) {
     const { a, li } = tags;
-    return li().append$(a().href(`#${chat.id}`).id(`chat-${chat.id}`).textContent(chat.name));
+    return li().append$(
+        a().href(`#${chat.id}`)
+            .id(`chat-${chat.id}`)
+            .ariaCurrent(chatId.derive((id) => chat.id === id ? "page" : null))
+            .textContent(chat.name),
+    );
 }
 
 const ChatNavigationStyle = css`
     :scope {
         display: block grid;
         grid-template-rows: auto 1fr auto;
-        gap: 0.3em;
+        gap: 1em;
 
         padding-inline: 0.6em;
         padding-block: 1em;
@@ -69,16 +78,26 @@ const ChatNavigationStyle = css`
         &:hover {
             background-color: var(--surface-hover-strong);
         }
+
+        &[aria-current="page"] {
+            font-weight: var(--weight-medium);
+            color: var(--accent-pop);
+            background-color: var(--accent-base);
+        }
     }
 
     #new-chat {
-        font-weight: var(--weight-medium);
-        color: var(--accent-pop);
-        background-color: var(--accent-base);
-        margin-block-end: 0.35em;
+        background-color: color-mix(in srgb, var(--base), var(--pop) 5%);
+        color: var(--pop);
 
         &:hover {
             background-color: color-mix(in srgb, var(--accent-base), white 10%);
+        }
+
+        &[aria-current="page"] {
+            font-weight: var(--weight-medium);
+            color: var(--accent-pop);
+            background-color: var(--accent-base);
         }
     }
 `;
