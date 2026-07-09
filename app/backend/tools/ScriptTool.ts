@@ -2,6 +2,7 @@ import { ChatClient } from "~/backend/chats/ChatClient.ts";
 import { ToolCall } from "~/backend/handlers/chats/messages/MessageContent.ts";
 import { ProviderToolCall, ProviderToolDefinition } from "~/backend/providers/ProviderClient.ts";
 import { Tool } from "~/backend/tools/Tool.ts";
+import { assertSafeImports } from "~/backend/tools/guard.ts";
 
 const DEFAULT_PERMISSIONS = {
     net: false,
@@ -15,7 +16,7 @@ const DEFAULT_PERMISSIONS = {
 } as const;
 
 export type ScriptToolPermissions = {
-    [K in keyof typeof DEFAULT_PERMISSIONS]?: string[] | boolean;
+    -readonly [K in keyof typeof DEFAULT_PERMISSIONS]?: string[] | boolean;
 };
 
 const PRELOAD_TIMEOUT_MS = 60_000;
@@ -47,15 +48,6 @@ export class ScriptTool extends Tool {
                     `You can call any of your tools (including \`script\` itself, e.g. for nested/recursive runs) from inside the worker: they're exposed on the global \`tools\` object as async functions, e.g. \`const result = await tools.someToolName(args)\`. ` +
                     `\`args\` is whatever object that tool's own parameters schema expects (same schema you already see for it as a top-level tool). Each call returns a Promise that resolves with the tool's result (JSON-parsed if possible, otherwise the raw string) or rejects with an Error if the tool call fails. ` +
                     `These calls run for real (against the live chat), count toward this worker's own \`timeout\`, and don't show up as separate messages in the conversation — only this script's own final posted result does. \`tools\` is a reserved global name, don't shadow it.`,
-
-                    this.permissions.import && [
-                        `If your code imports remote modules, list those exact specifiers in \`preload\` — they'll be fetched/cached first and that time does NOT count against \`timeout\`, only the worker's own startup+execution does.`,
-                        ``,
-                        `IMPORT SOURCE GUIDANCE (try in this order, don't jump to esm.sh out of habit):`,
-                        `1. \`jsr:@scope/name\` — check jsr.io first, it's the Deno-native registry.`,
-                        `2. \`npm:package-name\` — most npm packages work directly via Deno's npm compat, try this next for anything not on jsr.`,
-                        `3. \`https://esm.sh/...\` — use this if the package isn't on jsr/npm, OR if \`npm:\` fails/errors due to Node-compat issues (native bindings, CJS/ESM interop, missing Node builtins, etc). esm.sh serves a pre-converted browser-ESM build which often works when Deno's npm compat layer chokes on a package — it's a legitimate fallback, not just a last resort to avoid. It's just slower to resolve, so prefer jsr/npm when they actually work.`,
-                    ].join("\n"),
 
                     `Returns the posted value as a string.`,
                 ].filter(Boolean).join("\n\n"),
@@ -122,6 +114,10 @@ export class ScriptTool extends Tool {
                 "Error: missing/invalid 'timeout' argument. You must pick a timeout in seconds yourself — there is no default. This budget is for the worker's own startup+execution only (preload warm-up doesn't count).",
             );
         }
+
+        if (Array.isArray(this.permissions.import)) assertSafeImports(code, this.permissions.import);
+        if (!this.permissions.net) this.permissions.import = false;
+
         const timeoutMs = args.timeout * 1000;
 
         const preloadSpecifiers = args.preload ?? [];

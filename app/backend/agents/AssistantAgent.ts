@@ -11,7 +11,13 @@ export const AssistantAgent = {
         "You have access to tools — refer to each tool's own description and parameters for how to use it.",
     ].join("\n"),
     tools: [
-        new ScriptTool({ net: true, import: true }),
+        new ScriptTool({
+            net: true,
+            import: [
+                "esm.sh",
+                "deno.land",
+            ],
+        }),
         new TaskTool(),
     ],
 } as const satisfies Agent;
