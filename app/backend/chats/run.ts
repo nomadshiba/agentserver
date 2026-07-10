@@ -6,137 +6,141 @@ import { renderToolCallContent, renderToolCallSummary, renderToolResult } from "
 import { ProviderStream, ProviderToolDefinition } from "~/backend/providers/ProviderClient.ts";
 import { ChatMessageOutput } from "~/backend/handlers/chats/messages/ChatMessageOutput.ts";
 
-const MAX_TOOL_ROUNDS = 100;
-
-export async function runAgent(chat: ChatClient): Promise<void> {
+/** Returns `true` if the assistant made tool calls (loop should continue), `false` otherwise. */
+export async function runAgent(chat: ChatClient, signal: AbortSignal): Promise<boolean> {
     const { model } = chat;
-    if (!model) return;
+    if (!model) return false;
 
     const tools = chat.agent.tools;
     const toolDefinitions = tools.length ? tools.map((t): ProviderToolDefinition => t.definition) : undefined;
     const toolsByName = new Map(tools.map((t) => [t.definition.function.name, t] as const));
 
-    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-        const now = Date.now();
-        const message: ChatMessageOutput<"assistant"> = {
-            id: v7.generate(now),
-            content: { kind: "assistant", value: { partial: true, content: "", refusal: "", tool_calls: [] } },
-            created: new Date(now),
-        };
-        await chat.pushMessage(message);
+    if (signal.aborted) throw signal.reason;
 
-        let providerDone: ProviderStream & { kind: "done" } | undefined;
-        const done = async (delta: ChatAssistantDelta<"done">) => {
-            message.content.value.partial = false;
-            await chat.pushStream({ id: message.id, delta });
-        };
+    const now = Date.now();
+    const message: ChatMessageOutput<"assistant"> = {
+        id: v7.generate(now),
+        content: { kind: "assistant", value: { partial: true, content: "", refusal: "", tool_calls: [] } },
+        created: new Date(now),
+    };
+    await chat.pushMessage(message);
 
-        try {
-            const stream = model.provider.chatStream({
-                model: model.name,
-                messages: chat.messages,
-                tools: toolDefinitions,
-                reasoning_effort: "none",
-            });
-            for await (const delta of stream) {
-                const { kind } = delta;
-                switch (kind) {
-                    case "text": {
-                        message.content.value.content += delta.value;
-                        await chat.pushStream({ id: message.id, delta: { kind: "text", value: delta.value } });
-                        break;
-                    }
-                    case "refusal": {
-                        message.content.value.refusal += delta.value;
-                        await chat.pushStream({ id: message.id, delta: { kind: "refusal", value: delta.value } });
-                        break;
-                    }
-                    case "reasoning": {
-                        // TODO: handle it
-                        console.log("reasoning", delta.value);
-                        break;
-                    }
-                    case "tool_call": {
-                        let call = message.content.value.tool_calls[delta.value.index];
-                        if (!call) {
-                            call = message.content.value.tool_calls[delta.value.index] = {
-                                kind: "function",
-                                value: {
-                                    id: `call${encodeBase32(crypto.getRandomValues(new Uint8Array(8))).replace(/=+$/, "")}`,
-                                    name: "",
-                                    arguments: "",
-                                    display: { summary: "", content: "" },
-                                    result: { content: "", display: "" },
-                                },
-                            };
-                            await chat.pushStream({
-                                id: message.id,
-                                delta: { kind: "tool_call_new", value: { id: call.value.id, index: delta.value.index } },
-                            });
-                        }
+    let providerDone: ProviderStream & { kind: "done" } | undefined;
+    const done = async (delta: ChatAssistantDelta<"done">) => {
+        message.content.value.partial = false;
+        await chat.pushStream({ id: message.id, delta });
+    };
 
-                        if (delta.value.name) call.value.name += delta.value.name;
-                        if (delta.value.arguments) call.value.arguments += delta.value.arguments;
-                        const summary = renderToolCallSummary({ id: call.value.id, type: "function", function: call.value });
+    try {
+        const stream = model.provider.chatStream({
+            model: model.name,
+            messages: chat.messages,
+            tools: toolDefinitions,
+            reasoning_effort: "none",
+        }, signal);
+        for await (const delta of stream) {
+            const { kind } = delta;
+            switch (kind) {
+                case "text": {
+                    message.content.value.content += delta.value;
+                    await chat.pushStream({ id: message.id, delta: { kind: "text", value: delta.value } });
+                    break;
+                }
+                case "refusal": {
+                    message.content.value.refusal += delta.value;
+                    await chat.pushStream({ id: message.id, delta: { kind: "refusal", value: delta.value } });
+                    break;
+                }
+                case "reasoning": {
+                    // TODO: handle it
+                    console.log("reasoning", delta.value);
+                    break;
+                }
+                case "tool_call": {
+                    let call = message.content.value.tool_calls[delta.value.index];
+                    if (!call) {
+                        call = message.content.value.tool_calls[delta.value.index] = {
+                            kind: "function",
+                            value: {
+                                id: `call${encodeBase32(crypto.getRandomValues(new Uint8Array(8))).replace(/=+$/, "")}`,
+                                name: "",
+                                arguments: "",
+                                display: { summary: "", content: "" },
+                                result: { content: "", display: "" },
+                            },
+                        };
                         await chat.pushStream({
                             id: message.id,
-                            delta: {
-                                kind: "tool_call_delta",
-                                value: {
-                                    index: delta.value.index,
-                                    name: delta.value.name ?? "",
-                                    arguments: delta.value.arguments ?? "",
-                                    display: summary !== call.value.display.summary ? { summary } : null,
-                                },
-                            },
+                            delta: { kind: "tool_call_new", value: { id: call.value.id, index: delta.value.index } },
                         });
+                    }
 
-                        break;
-                    }
-                    case "done": {
-                        providerDone = delta;
-                        break;
-                    }
-                    default: {
-                        throw new Error(`Unhandled provider delta kind: ${kind satisfies never}`);
-                    }
+                    if (delta.value.name) call.value.name += delta.value.name;
+                    if (delta.value.arguments) call.value.arguments += delta.value.arguments;
+                    const summary = renderToolCallSummary({ id: call.value.id, type: "function", function: call.value });
+                    await chat.pushStream({
+                        id: message.id,
+                        delta: {
+                            kind: "tool_call_delta",
+                            value: {
+                                index: delta.value.index,
+                                name: delta.value.name ?? "",
+                                arguments: delta.value.arguments ?? "",
+                                display: summary !== call.value.display.summary ? { summary } : null,
+                            },
+                        },
+                    });
+
+                    break;
+                }
+                case "done": {
+                    providerDone = delta;
+                    break;
+                }
+                default: {
+                    throw new Error(`Unhandled provider delta kind: ${kind satisfies never}`);
                 }
             }
-
-            if (!providerDone) throw new Error("Stream ended without calling 'done'");
-        } catch (reason) {
-            console.error(reason);
-            await done({ kind: "done", value: { kind: "fail", value: String(reason) } });
-            return;
         }
 
-        if (!message.content.value.tool_calls.length) {
-            await done({ kind: "done", value: { kind: "provider", value: providerDone.value.finish_reason } });
-            break;
+        if (!providerDone) throw new Error("Stream ended without calling 'done'");
+    } catch (reason) {
+        if (signal.aborted) {
+            await done({ kind: "done", value: { kind: "fail", value: "aborted" } });
+            throw signal.reason;
         }
-
-        await Promise.allSettled(message.content.value.tool_calls.map(async (call, index) => {
-            call.value.display.content = renderToolCallContent({
-                id: call.value.id,
-                type: "function",
-                function: { name: call.value.name, arguments: call.value.arguments },
-            });
-            await chat.pushStream({ id: message.id, delta: { kind: "tool_call_done", value: { index, display: call.value.display } } });
-            const tool = toolsByName.get(call.value.name);
-            let content: string;
-            if (tool) {
-                try {
-                    content = await tool.execute(chat, call);
-                } catch (reason) {
-                    content = `Error: ${String(reason)}`;
-                }
-            } else {
-                content = `Error: unknown tool "${call.value.name}"`;
-            }
-            call.value.result = { content, display: renderToolResult(call.value.name, content) };
-            await chat.pushStream({ id: message.id, delta: { kind: "tool_call_result", value: { index, result: call.value.result } } });
-        }));
-
-        await done({ kind: "done", value: { kind: "provider", value: providerDone.value.finish_reason } });
+        console.error(reason);
+        await done({ kind: "done", value: { kind: "fail", value: String(reason) } });
+        return false;
     }
+
+    if (!message.content.value.tool_calls.length) {
+        await done({ kind: "done", value: { kind: "provider", value: providerDone.value.finish_reason } });
+        return false;
+    }
+
+    await Promise.allSettled(message.content.value.tool_calls.map(async (call, index) => {
+        call.value.display.content = renderToolCallContent({
+            id: call.value.id,
+            type: "function",
+            function: { name: call.value.name, arguments: call.value.arguments },
+        });
+        await chat.pushStream({ id: message.id, delta: { kind: "tool_call_done", value: { index, display: call.value.display } } });
+        const tool = toolsByName.get(call.value.name);
+        let content: string;
+        if (tool) {
+            try {
+                content = await tool.execute(chat, call, signal);
+            } catch (reason) {
+                content = `Error: ${String(reason)}`;
+            }
+        } else {
+            content = `Error: unknown tool "${call.value.name}"`;
+        }
+        call.value.result = { content, display: renderToolResult(call.value.name, content) };
+        await chat.pushStream({ id: message.id, delta: { kind: "tool_call_result", value: { index, result: call.value.result } } });
+    }));
+
+    await done({ kind: "done", value: { kind: "provider", value: providerDone.value.finish_reason } });
+    return true;
 }

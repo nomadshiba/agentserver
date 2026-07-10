@@ -93,7 +93,7 @@ export class ScriptTool extends Tool {
         };
     }
 
-    public async execute(chat: ChatClient, call: ToolCall): Promise<string> {
+    public async execute(chat: ChatClient, call: ToolCall, signal: AbortSignal): Promise<string> {
         let args: { summary?: string; code?: string; use?: string[]; preload?: string[]; timeout?: number };
         try {
             args = JSON.parse(call.value.arguments);
@@ -172,11 +172,21 @@ export class ScriptTool extends Tool {
                 if (settled) return;
                 settled = true;
                 clearTimeout(timer);
+                signal.removeEventListener("abort", onAbort);
                 toolPort.close();
                 workerToolPort.close();
                 worker.terminate();
                 resolve(msg);
             };
+
+            const onAbort = () => {
+                finish(this.toolResult(call, "Error: aborted"));
+            };
+            if (signal.aborted) {
+                finish(this.toolResult(call, "Error: aborted"));
+                return;
+            }
+            signal.addEventListener("abort", onAbort, { once: true });
 
             const timer = setTimeout(() => {
                 finish(
@@ -188,7 +198,7 @@ export class ScriptTool extends Tool {
             }, timeoutMs);
 
             toolPort.onmessage = (e: MessageEvent) => {
-                void this.handleBoundToolCall(chat, call, chat.agent.tools, e.data).then((response) => {
+                void this.handleBoundToolCall(chat, call, chat.agent.tools, e.data, signal).then((response) => {
                     if (settled) return;
                     toolPort.postMessage(response);
                 });
@@ -214,6 +224,7 @@ export class ScriptTool extends Tool {
         call: ToolCall,
         boundTools: Tool[],
         request: unknown,
+        signal: AbortSignal,
     ): Promise<{ id: string; ok: boolean; value?: unknown; error?: string }> {
         const { id, name, args } = (request ?? {}) as { id?: string; name?: string; args?: unknown };
         if (typeof id !== "string" || typeof name !== "string") {
@@ -235,7 +246,7 @@ export class ScriptTool extends Tool {
         };
 
         try {
-            const result = await tool.execute(chat, syntheticCall);
+            const result = await tool.execute(chat, syntheticCall, signal);
             return { id, ok: true, value: this.tryParse(result) };
         } catch (reason) {
             return { id, ok: false, error: String(reason) };

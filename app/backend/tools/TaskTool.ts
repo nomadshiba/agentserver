@@ -48,7 +48,7 @@ export class TaskTool extends Tool {
         };
     }
 
-    public async execute(chat: ChatClient, call: ToolCall): Promise<string> {
+    public async execute(chat: ChatClient, call: ToolCall, signal: AbortSignal): Promise<string> {
         let args: { description?: string; prompt?: string; subagent_type?: string };
         try {
             args = JSON.parse(call.value.arguments);
@@ -83,6 +83,13 @@ export class TaskTool extends Tool {
             return `Error creating subagent chat: ${String(reason)}`;
         }
 
+        const onAbort = () => subChat.abortAgent();
+        if (signal.aborted) {
+            subChat.abortAgent();
+            return "Error: aborted";
+        }
+        signal.addEventListener("abort", onAbort, { once: true });
+
         try {
             await subChat.pushMessage({
                 id: v7.generate(),
@@ -94,6 +101,8 @@ export class TaskTool extends Tool {
             }, { wait: true });
         } catch (reason) {
             return `Error running subagent: ${String(reason)}`;
+        } finally {
+            signal.removeEventListener("abort", onAbort);
         }
 
         let finalMessage: string | undefined;

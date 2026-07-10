@@ -4,7 +4,7 @@ import { ProviderToolCall, ProviderToolDefinition } from "~/backend/providers/Pr
 
 export abstract class Tool {
     public abstract readonly definition: ProviderToolDefinition;
-    public abstract execute(chat: ChatClient, call: ToolCall): Promise<string> | string;
+    public abstract execute(chat: ChatClient, call: ToolCall, signal: AbortSignal): Promise<string> | string;
 
     /** Render tool call as message content (markdown) **/
     public abstract renderCallSummary(call: ProviderToolCall): string;

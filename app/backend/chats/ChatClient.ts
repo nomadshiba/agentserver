@@ -16,7 +16,12 @@ import { Emitter } from "~/libs/events/Emitter.ts";
 
 type ChatEvent = Codec.InferInput<typeof ChatStreamOutput>;
 
+const MAX_TOOL_ROUNDS = 100;
+
 export class ChatClient {
+    private agentAbortController: AbortController | null = null;
+    private agentLoop: Promise<void> | null = null;
+
     private constructor(
         public readonly id: string,
         public readonly emitter: Emitter<ChatEvent>,
@@ -244,6 +249,12 @@ export class ChatClient {
     public async pushMessage(message: ChatMessageOutput<"user">, options?: { wait?: boolean }): Promise<void>;
     public async pushMessage(message: ChatMessageOutput): Promise<void>;
     public async pushMessage(message: ChatMessageOutput, options?: { wait?: boolean }): Promise<void> {
+        if (this.agentLoop) {
+            // TODO: later make sure queued messages are stored on db as queued and also visible on the ui.
+            // Just makes sure everything keeps working even after restarts
+            await this.agentLoop;
+        }
+
         const { id, content } = message;
         const { kind } = content;
         const tx = await db.startTransaction().execute();
@@ -283,9 +294,29 @@ export class ChatClient {
         this.emitter.emit({ kind: "message", value: message });
 
         if (kind === "user") {
-            const promise = runAgent(this);
+            const promise = this.agentLoop = (async () => {
+                for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+                    this.agentAbortController = new AbortController();
+                    const signal = this.agentAbortController.signal;
+
+                    try {
+                        const hasToolCalls = await runAgent(this, signal);
+                        if (!hasToolCalls) break;
+                    } catch (reason) {
+                        if (signal.aborted) break;
+                        console.error(reason);
+                        break;
+                    }
+                }
+            })();
+            promise.finally(() => this.agentLoop = null);
             if (options?.wait) await promise;
         }
+    }
+
+    /** Aborts the active agent run, if any. The agent loop catches the abort, emits a fail-done, and stops. */
+    public abortAgent(): void {
+        this.agentAbortController?.abort();
     }
 }
 

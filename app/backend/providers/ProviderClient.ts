@@ -45,7 +45,7 @@ export class ProviderClient {
     private static readonly MODELS_CACHE_TTL_MS = 60_000;
     private modelsCache: { models: ProviderModel[]; expires: number } | undefined;
 
-    async chat(input: ProviderChatInput): Promise<ProviderAssistantMessage> {
+    async chat(input: ProviderChatInput, signal?: AbortSignal): Promise<ProviderAssistantMessage> {
         const body = {
             model: input.model,
             messages: input.messages,
@@ -63,6 +63,7 @@ export class ProviderClient {
                 "Content-Type": "application/json",
             },
             body: JSON.stringify(body),
+            signal,
         });
 
         if (!response.ok) {
@@ -75,7 +76,7 @@ export class ProviderClient {
         return output.choices[0].message;
     }
 
-    async *chatStream(input: ProviderChatInput): AsyncIterable<ProviderStream> {
+    async *chatStream(input: ProviderChatInput, signal?: AbortSignal): AsyncIterable<ProviderStream> {
         const json = `${
             JSON.stringify({
                 model: input.model,
@@ -95,6 +96,7 @@ export class ProviderClient {
                 "Content-Type": "application/json",
             },
             body: json,
+            signal,
         });
 
         if (!response.ok) {
@@ -108,6 +110,15 @@ export class ProviderClient {
         const decoder = new TextDecoder();
         let buffer = "";
         let finishReason: string | null = null;
+
+        const onAbort = () => reader.cancel().catch(() => {});
+        if (signal) {
+            if (signal.aborted) {
+                await reader.cancel().catch(() => {});
+                throw signal.reason;
+            }
+            signal.addEventListener("abort", onAbort, { once: true });
+        }
 
         try {
             while (true) {
@@ -151,19 +162,21 @@ export class ProviderClient {
                 }
             }
         } finally {
+            if (signal) signal.removeEventListener("abort", onAbort);
             reader.releaseLock();
         }
 
         yield { kind: "done", value: { finish_reason: finishReason } };
     }
 
-    async models(): Promise<ProviderModel[]> {
+    async models(signal?: AbortSignal): Promise<ProviderModel[]> {
         const now = Date.now();
         if (this.modelsCache && this.modelsCache.expires > now) return this.modelsCache.models;
 
         const res = await fetch(`${this.base}/models`, {
             method: "GET",
             headers: { "Authorization": `Bearer ${this.key}` },
+            signal,
         });
 
         if (!res.ok) {
