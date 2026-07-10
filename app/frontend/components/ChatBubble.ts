@@ -2,7 +2,7 @@ import { sync, tags, toChild } from "@purifyjs/core";
 import { ChatMessageOutput } from "~/backend/handlers/chats/messages/ChatMessageOutput.ts";
 import { ToolCall } from "~/backend/handlers/chats/messages/MessageContent.ts";
 import { Markdown } from "~/frontend/components/Markdown.ts";
-import { ToolCallIndicator } from "~/frontend/components/ToolCallIndicator.ts";
+import { ToolCallWidget } from "~/frontend/components/ToolCallWidget.ts";
 import { ChatAssistantStreamEmittter } from "~/frontend/events/ChatAssistantStreamEmittter.ts";
 import { css } from "~/frontend/kit/css.ts";
 import { relativeDate } from "~/frontend/utils/date.ts";
@@ -52,7 +52,7 @@ export function ChatBubble(message: ChatMessageOutput) {
             let markdown = Markdown(refusalBuffer || contentBuffer);
             const status = span().role("status").ariaBusy(content.value.partial ? "true" : "false").ariaLabel("Generating…");
             const tools = ul().ariaLabel("Tool calls").append$(content.value.tool_calls.map((call) => {
-                return li().id(`tool-call-${call.value.id}`).append$(ToolCallIndicator(call, { streaming: false }));
+                return li().id(`tool-call-${call.value.id}`).append$(ToolCallWidget(call, { streaming: false }));
             }));
 
             self.append$(markdown, tools, status);
@@ -64,7 +64,7 @@ export function ChatBubble(message: ChatMessageOutput) {
             };
 
             const updateCall = (call: ToolCall, streaming: boolean) => {
-                const item = li().append$(ToolCallIndicator(call, { streaming })).id(`tool-call-${call.value.id}`);
+                const item = li().append$(ToolCallWidget(call, { streaming })).id(`tool-call-${call.value.id}`);
                 const exist = tools.$node.querySelector(`#tool-call-${call.value.id}`);
                 if (exist) exist.replaceWith(toChild(item));
                 else tools.append$(item); // Visual order not that important
@@ -125,7 +125,7 @@ export function ChatBubble(message: ChatMessageOutput) {
 
                     if (event.delta.kind === "done") {
                         tools.replaceChildren$(callBuffer.map((call) => {
-                            return li().id(`tool-call-${call.value.id}`).append$(ToolCallIndicator(call, { streaming: false }));
+                            return li().id(`tool-call-${call.value.id}`).append$(ToolCallWidget(call, { streaming: false }));
                         }));
                         status.ariaBusy("false");
                         return;

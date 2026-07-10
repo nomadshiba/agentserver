@@ -3,46 +3,27 @@ import { ToolCall } from "~/backend/handlers/chats/messages/MessageContent.ts";
 import { Markdown } from "~/frontend/components/Markdown.ts";
 import { css } from "~/frontend/kit/css.ts";
 import { StatusTextMixin } from "~/frontend/styles/StatusMixin.ts";
+import { WeakRefMap } from "~/libs/collections/WeakRefMap.ts";
 
-export function ToolCallIndicator(
+const modalCache = new WeakRefMap<string, ReturnType<typeof ToolCallModal>>();
+
+export function ToolCallWidget(
     call: ToolCall,
     options: { streaming: boolean },
 ) {
-    const { button, dialog, header, section, span } = tags;
-
-    const { summary, content } = call.value.display;
+    const { button, span } = tags;
 
     const status = call.value.result ? "Done" : options.streaming ? `Generating…${call.value.arguments.slice(-16)}` : "Running…";
     const busy = call.value.result ? "false" : "true";
 
-    const modal = !options.streaming
-        ? dialog()
-            .$bind(ToolCallsModalStyle.useScope())
-            .onclick((event) => {
-                if (event.target === event.currentTarget) event.currentTarget.close();
-            })
-            .onclose((event) => event.currentTarget.remove())
-            .append$(
-                header().append$(
-                    Markdown(summary),
-                    button().type("button").ariaLabel("Close").textContent("×").onclick(() => modal?.close()),
-                ),
-                section().ariaLabel("Call").append$(
-                    span({ class: "label" }).textContent("Call"),
-                    Markdown(content),
-                ),
-                section().ariaLabel("Result").ariaBusy(call.value.result ? "false" : "true").append$(
-                    span({ class: "label" }).textContent("Result"),
-                    call.value.result ? Markdown(call.value.result.display) : span().ariaBusy(busy).role("status").textContent(status),
-                ),
-            )
-        : undefined;
+    const { modal, update } = modalCache.getOrInsertComputed(call.value.id, () => ToolCallModal());
+    update(call);
 
     const self = button().type("button")
         .disabled(!modal)
         .$bind(ToolCallStyle.useScope())
         .append$(
-            Markdown(summary),
+            Markdown(call.value.display.summary),
             span().role("status").ariaBusy(busy).textContent(status),
         )
         .onclick(() => {
@@ -81,6 +62,38 @@ const ToolCallStyle = css`
 
     ${StatusTextMixin};
 `;
+
+function ToolCallModal() {
+    const { dialog, header, section, button, span } = tags;
+    const self = dialog().$bind(ToolCallsModalStyle.useScope());
+
+    self.onclick((event) => {
+        if (event.target !== event.currentTarget) return;
+        event.currentTarget.close();
+    });
+    self.onclose((event) => event.currentTarget.remove());
+
+    const update = (call: ToolCall) => {
+        const busy = call.value.result ? "false" : "true";
+
+        self.replaceChildren$(
+            header().append$(
+                Markdown(call.value.display.summary),
+                button().type("button").ariaLabel("Close").textContent("×").onclick(() => self?.close()),
+            ),
+            section().ariaLabel("Call").append$(
+                span({ class: "label" }).textContent("Call"),
+                Markdown(call.value.display.content),
+            ),
+            section().ariaLabel("Result").ariaBusy(call.value.result ? "false" : "true").append$(
+                span({ class: "label" }).textContent("Result"),
+                call.value.result ? Markdown(call.value.result.display) : span().ariaBusy(busy).role("status").textContent(status),
+            ),
+        );
+    };
+
+    return { modal: self, update };
+}
 
 const ToolCallsModalStyle = css`
     :scope[open] {

@@ -17,6 +17,14 @@ export class WeakRefMap<K, V extends object> {
         return this.map.get(key)?.deref();
     }
 
+    getOrInsertComputed(key: K, compute: () => V): V {
+        const exist = this.get(key);
+        if (exist) return exist;
+        const value = compute();
+        this.set(key, value);
+        return value;
+    }
+
     has(key: K): boolean {
         const ref = this.map.get(key);
         if (!ref) return false;

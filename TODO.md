@@ -32,8 +32,8 @@
       give them permission as well. or copy it to their chat bucket. buckets similar to s3 api, but on disk.
 - [ ] agents can use the buckets for note taking, but as i said i want an obsidian like notepad for the agent. this can be a seperate tool
       or not.
-- [ ] rebuilding tool call indicator objects causes modal to be recreated as well. create modal seperately. so it can update. or memoize it
-      with an Map
+- [+] rebuilding tool call indicator objects causes modal to be recreated as well. create modal seperately. so it can update. or memoize it
+  with an Map
 - [ ] handle partial assitant messages and unfinished tool calls in db at startup. probably give an error for the tool call, and make the
       message non-partial.
 - [ ] mobile responsive tweaks
