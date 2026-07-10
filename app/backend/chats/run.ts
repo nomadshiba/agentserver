@@ -2,9 +2,9 @@ import { encodeBase32 } from "@std/encoding";
 import { v7 } from "@std/uuid";
 import { ChatClient } from "~/backend/chats/ChatClient.ts";
 import { ChatAssistantDelta } from "~/backend/handlers/chats/messages/ChatAssistantStream.ts";
+import { ChatMessageOutput } from "~/backend/handlers/chats/messages/ChatMessageOutput.ts";
 import { renderToolCallContent, renderToolCallSummary, renderToolResult } from "~/backend/handlers/chats/messages/utils.ts";
 import { ProviderStream, ProviderToolDefinition } from "~/backend/providers/ProviderClient.ts";
-import { ChatMessageOutput } from "~/backend/handlers/chats/messages/ChatMessageOutput.ts";
 
 /** Returns `true` if the assistant made tool calls (loop should continue), `false` otherwise. */
 export async function runAgent(chat: ChatClient, signal: AbortSignal): Promise<boolean> {
@@ -78,6 +78,8 @@ export async function runAgent(chat: ChatClient, signal: AbortSignal): Promise<b
                     if (delta.value.name) call.value.name += delta.value.name;
                     if (delta.value.arguments) call.value.arguments += delta.value.arguments;
                     const summary = renderToolCallSummary({ id: call.value.id, type: "function", function: call.value });
+                    const summaryChanged = summary !== call.value.display.summary;
+                    if (summaryChanged) call.value.display.summary = summary;
                     await chat.pushStream({
                         id: message.id,
                         delta: {
@@ -86,7 +88,7 @@ export async function runAgent(chat: ChatClient, signal: AbortSignal): Promise<b
                                 index: delta.value.index,
                                 name: delta.value.name ?? "",
                                 arguments: delta.value.arguments ?? "",
-                                display: summary !== call.value.display.summary ? { summary } : null,
+                                display: summaryChanged ? call.value.display : null,
                             },
                         },
                     });
