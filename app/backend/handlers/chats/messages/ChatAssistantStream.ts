@@ -2,7 +2,8 @@ import { Codec, EnumCodec, NullableCodec, Str, StructCodec, U8 } from "@nomadshi
 import { ToolCallResult } from "~/backend/handlers/chats/messages/MessageContent.ts";
 import { UUID } from "~/libs/codecs/UUID.ts";
 
-export type ChatAssistantDelta = Codec.InferOutput<typeof ChatAssistantDelta>;
+type O = Codec.InferOutput<typeof ChatAssistantDelta>;
+export type ChatAssistantDelta<T extends O["kind"] = O["kind"]> = O & { kind: T };
 export const ChatAssistantDelta = new EnumCodec({
     text: Str,
     refusal: Str,

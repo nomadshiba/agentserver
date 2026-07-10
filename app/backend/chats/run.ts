@@ -26,7 +26,7 @@ export async function runAgent(chat: ChatClient): Promise<void> {
         await chat.pushMessage(message);
 
         let providerDone: ProviderStream & { kind: "done" } | undefined;
-        const done = async (delta: ChatAssistantDelta) => {
+        const done = async (delta: ChatAssistantDelta<"done">) => {
             message.content.value.partial = false;
             await chat.pushStream({ id: message.id, delta });
         };
