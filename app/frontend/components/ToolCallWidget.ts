@@ -110,7 +110,7 @@ const ToolCallsModalStyle = css`
     header button {
         all: unset;
         cursor: pointer;
-        font-size: var(--text-lg);
+        font-size: 1.4em;
         line-height: 1;
         color: var(--subtle);
 

@@ -74,6 +74,7 @@ export function ModelPicker(model: Sync.Ref<SelectedModel | undefined>) {
         .append$(
             header().append$(
                 strong().textContent("Select Model"),
+                button({ class: "close" }).type("button").ariaLabel("Close").textContent("×").onclick(() => modal.close()),
                 new Builder(document.createElement("search")).append$(
                     input().type("search").placeholder("Search models...").$bind(useValue(search)),
                     button()
@@ -154,6 +155,7 @@ const ModelModalStyle = css`
 
     header {
         display: block grid;
+        grid-template-columns: 1fr auto;
         gap: 0.6em;
         padding: 1em;
 
@@ -163,9 +165,24 @@ const ModelModalStyle = css`
         z-index: 1;
 
         strong {
-            grid-column: 1 / -1;
             font-size: var(--text-lg);
             font-weight: var(--weight-medium);
+        }
+
+        search {
+            grid-column: 1 / -1;
+        }
+    }
+
+    header .close {
+        all: unset;
+        cursor: pointer;
+        font-size: 1.4em;
+        line-height: 1;
+        color: var(--subtle);
+
+        &:hover {
+            color: var(--pop);
         }
     }
 
