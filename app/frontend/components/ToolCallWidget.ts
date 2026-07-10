@@ -67,10 +67,6 @@ function ToolCallModal() {
     const { dialog, header, section, button, span } = tags;
     const self = dialog().$bind(ToolCallsModalStyle.useScope());
 
-    self.onclick((event) => {
-        if (event.target !== event.currentTarget) return;
-        event.currentTarget.close();
-    });
     self.onclose((event) => event.currentTarget.remove());
 
     const update = (call: ToolCall) => {
@@ -99,7 +95,7 @@ const ToolCallsModalStyle = css`
     :scope[open] {
         display: block grid;
         align-content: start;
-        inline-size: min(44em, 92vi);
+        inline-size: min(44em, 100vi);
     }
 
     header {

@@ -37,16 +37,27 @@ const AppStyle = css`
     header {
         display: block grid;
         position: sticky;
-        inset-block-start: var(--layout-gap);
-        block-size: calc(100dvb - var(--layout-gap) - var(--layout-gap));
+        inset-block-start: 0;
+        block-size: 100dvb;
 
         background-color: var(--base);
-        border-radius: var(--layout-radius);
         z-index: 1;
     }
 
     main {
         display: block grid;
+    }
+
+    @container (inline-size < 50em) {
+        :scope {
+            grid-template-columns: 1fr;
+        }
+
+        header {
+            display: none;
+            position: fixed;
+            inline-size: min(100%, 20em);
+        }
     }
 `;
 
@@ -121,6 +132,11 @@ const GlobalStyle = css`
         &::backdrop {
             background-color: color-mix(in srgb, black, transparent 45%);
         }
+    }
+
+    html {
+        container-type: inline-size;
+        container-name: root;
     }
 `;
 

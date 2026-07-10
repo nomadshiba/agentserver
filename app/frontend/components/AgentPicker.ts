@@ -123,6 +123,9 @@ const AgentPickerStyle = css`
         strong {
             font-size: var(--text-sm);
             font-weight: var(--weight-medium);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         &:hover {

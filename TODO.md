@@ -36,4 +36,4 @@
   with an Map
 - [ ] handle partial assitant messages and unfinished tool calls in db at startup. probably give an error for the tool call, and make the
       message non-partial.
-- [ ] mobile responsive tweaks
+- [/] mobile responsive tweaks

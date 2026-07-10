@@ -120,10 +120,10 @@ const ModelPickerStyle = css`
         display: block grid;
         grid-auto-flow: column;
         gap: 0.4em;
-        align-items: baseline;
+        align-items: center;
         padding-inline: 0.75em;
         padding-block: 0.45em;
-        border-radius: 999px;
+        border-radius: 1em;
         background-color: var(--surface-hover);
         transition: background-color 0.12s ease;
 
@@ -135,6 +135,9 @@ const ModelPickerStyle = css`
         strong {
             font-size: var(--text-sm);
             font-weight: var(--weight-medium);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         &:hover {

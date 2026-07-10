@@ -153,6 +153,11 @@ const ChatStyle = css`
         grid-template-columns: auto 1fr auto;
     }
 
+    form menu li {
+        display: block flow;
+        overflow: hidden;
+    }
+
     form menu button[type="submit"] {
         all: unset;
         cursor: pointer;
