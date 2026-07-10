@@ -324,7 +324,8 @@ export class ChatClient {
                 this.queue = [];
                 if (queued.length) {
                     for (const message of queued) {
-                        // TODO: this is hacky, design this better later:
+                        // TODO: this is hacky, design this better later
+                        // TODO: probably always queue user messages and have a seperate method for it.
                         const now = Date.now();
                         message.id = v7.generate(now);
                         message.created = new Date(now);
