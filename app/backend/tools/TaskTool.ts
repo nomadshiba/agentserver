@@ -1,4 +1,3 @@
-import { v7 } from "@std/uuid";
 import { agentsByName, agentsWhereKindSubagent } from "~/backend/agents/mod.ts";
 import { ChatClient } from "~/backend/chats/ChatClient.ts";
 import { ToolCall } from "~/backend/handlers/chats/messages/MessageContent.ts";
@@ -91,14 +90,7 @@ export class TaskTool extends Tool {
         signal.addEventListener("abort", onAbort, { once: true });
 
         try {
-            await subChat.pushMessage({
-                id: v7.generate(),
-                content: {
-                    kind: "user",
-                    value: { content: args.prompt },
-                },
-                created: new Date(),
-            });
+            await subChat.queueUserMessage(args.prompt);
             await subChat.startAgent();
         } catch (reason) {
             return `Error running subagent: ${String(reason)}`;

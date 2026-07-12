@@ -246,22 +246,19 @@ export class ChatClient {
         this.emitter.emit({ kind: "stream", value: stream });
     }
 
-    private queue: ChatMessageOutput<"user">[] = [];
-    private pushMessageChain: Promise<void> = Promise.resolve();
-    public pushMessage(message: ChatMessageOutput): Promise<void> | void {
-        if (this.agentLoop && message.content.kind === "user") {
-            // TODO: later make sure this also persist in db.
-            // TODO: https://github.com/microsoft/TypeScript/issues/42384
-            this.queue.push(message as never);
-            return;
-        }
+    private userMesssageQueue: string[] = [];
+    public queueUserMessage(content: string): Promise<void> | void {
+        // TODO: later make sure queue also persist in db.
+        this.userMesssageQueue.push(content);
+    }
 
-        const run = () => this.persistMessage(message);
+    private pushMessageChain: Promise<void> = Promise.resolve();
+    public pushMessage(message: ChatMessageOutput): Promise<void> {
+        const run = () => this.pushMessage_(message);
         this.pushMessageChain = this.pushMessageChain.then(run, run);
         return this.pushMessageChain;
     }
-
-    private async persistMessage(message: ChatMessageOutput): Promise<void> {
+    private async pushMessage_(message: ChatMessageOutput): Promise<void> {
         const { id, content } = message;
         const { kind } = content;
         const tx = await db.startTransaction().execute();
@@ -302,39 +299,32 @@ export class ChatClient {
     }
 
     public startAgent(): Promise<void> | void {
-        if (this.agentLoop) return;
-        return this.agentLoop = (async () => {
-            try {
-                for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-                    this.agentAbortController = new AbortController();
-                    const signal = this.agentAbortController.signal;
+        return this.agentLoop ??= (async () => {
+            for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+                const { signal } = this.agentAbortController = new AbortController();
 
-                    try {
-                        const hasToolCalls = await runAgent(this, signal);
-                        if (!hasToolCalls) break;
-                    } catch (reason) {
-                        if (signal.aborted) break;
-                        console.error(reason);
-                        break;
-                    }
+                const queue = this.userMesssageQueue;
+                this.userMesssageQueue = [];
+                for (const content of queue) {
+                    const now = Date.now();
+                    await this.pushMessage({
+                        id: v7.generate(now),
+                        content: { kind: "user", value: { content } },
+                        created: new Date(now),
+                    });
                 }
-            } finally {
-                this.agentLoop = null;
-                const queued = this.queue;
-                this.queue = [];
-                if (queued.length) {
-                    for (const message of queued) {
-                        // TODO: this is hacky, design this better later
-                        // TODO: probably always queue user messages and have a seperate method for it.
-                        const now = Date.now();
-                        message.id = v7.generate(now);
-                        message.created = new Date(now);
-                        await this.pushMessage(message);
-                    }
-                    await this.startAgent();
+
+                try {
+                    const hasToolCalls = await runAgent(this, signal);
+                    if (!hasToolCalls) round = MAX_TOOL_ROUNDS;
+                } catch (reason) {
+                    if (!signal.aborted) console.error(reason);
+                    round = MAX_TOOL_ROUNDS;
                 }
+
+                if (this.userMesssageQueue.length) round = -1; // ++ -> 0
             }
-        })();
+        })().finally(() => this.agentLoop = null);
     }
 
     public abortAgent(): void {
