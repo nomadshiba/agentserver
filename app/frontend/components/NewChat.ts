@@ -5,9 +5,11 @@ import { ChatBox } from "~/frontend/components/ChatBox.ts";
 import { ChatNavigationItem } from "~/frontend/components/ChatNavigation.ts";
 import { ModelPicker, SelectedModel } from "~/frontend/components/ModelPicker.ts";
 import { css } from "~/frontend/kit/css.ts";
+export async function NewChat() {
+    const { section, form, menu, li, button, p } = tags;
+    const self = section().ariaLabel("New Chat").$bind(NewChatStyle.useScope());
 
-async function resolveDefaults(): Promise<{ agent: string; model: SelectedModel | undefined }> {
-    const chats = await api.fetch("GET /v1/chats", { params: { pathname: {}, search: {} } });
+    const chats = await api.fetch("GET /v1/chats", { params: {} });
     const lastChat = chats.reduce<typeof chats[number] | undefined>(
         (latest, chat) => !latest || chat.updated.getTime() > latest.updated.getTime() ? chat : latest,
         undefined,
@@ -17,22 +19,13 @@ async function resolveDefaults(): Promise<{ agent: string; model: SelectedModel 
         return { agent: lastChat.agent, model: lastChat.model };
     }
 
-    const [agents, models] = await Promise.all([
-        api.fetch("GET /v1/agents", { params: { pathname: {}, search: {} } }),
-        api.fetch("GET /v1/models", { params: { pathname: {}, search: {} } }),
-    ]);
-
-    return {
+    const defaults = await Promise.all([
+        api.fetch("GET /v1/agents", { params: {} }),
+        api.fetch("GET /v1/models", { params: {} }),
+    ]).then(([agents, models]) => ({
         agent: agents[0]?.name ?? "",
         model: models[0] ? { name: models[0].name, providerId: models[0].providerId } : undefined,
-    };
-}
-
-export async function NewChat() {
-    const { section, form, menu, li, button, p } = tags;
-    const self = section().ariaLabel("New Chat").$bind(NewChatStyle.useScope());
-
-    const defaults = await resolveDefaults();
+    }));
 
     const content = ref("");
     const agent: Sync.Ref<string> = ref(defaults.agent);
@@ -72,7 +65,7 @@ export async function NewChat() {
                     }
 
                     const chat = await api.fetch("POST /v1/chats", {
-                        params: { pathname: {}, search: {} },
+                        params: {},
                         data: {
                             name,
                             agent: currentAgent,
@@ -82,7 +75,7 @@ export async function NewChat() {
                     document.querySelector("#chats")!.prepend(toChild(ChatNavigationItem({ id: chat.id, name })));
 
                     await api.fetch("POST /v1/chats/:chatId/messages", {
-                        params: { pathname: { chatId: chat.id }, search: {} },
+                        params: { pathname: { chatId: chat.id } },
                         data: { content: value },
                     });
 

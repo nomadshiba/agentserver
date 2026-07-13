@@ -20,7 +20,7 @@ export function ProviderManager() {
     const refresh = async () => {
         loading.set(true);
         try {
-            providers.set(await api.fetch("GET /v1/providers", { params: { pathname: {}, search: {} } }));
+            providers.set(await api.fetch("GET /v1/providers", { params: {} }));
         } catch (cause) {
             fail.set(cause instanceof Error ? cause.message : String(cause));
         } finally {
@@ -49,9 +49,9 @@ export function ProviderManager() {
             const id = editingId.get();
             const data = { name: name.get().trim(), base: base.get().trim(), key: key.get().trim() };
             if (id) {
-                await api.fetch("PATCH /v1/providers/:providerId", { params: { pathname: { providerId: id }, search: {} }, data });
+                await api.fetch("PATCH /v1/providers/:providerId", { params: { pathname: { providerId: id } }, data });
             } else {
-                await api.fetch("POST /v1/providers", { params: { pathname: {}, search: {} }, data });
+                await api.fetch("POST /v1/providers", { params: {}, data });
             }
             resetForm();
             await refresh();
@@ -66,7 +66,7 @@ export function ProviderManager() {
         if (!confirm("Delete this provider? Chats using it will fail.")) return;
         loading.set(true);
         try {
-            await api.fetch("DELETE /v1/providers/:providerId", { params: { pathname: { providerId: id }, search: {} } });
+            await api.fetch("DELETE /v1/providers/:providerId", { params: { pathname: { providerId: id } } });
             await refresh();
         } catch (cause) {
             fail.set(cause instanceof Error ? cause.message : String(cause));

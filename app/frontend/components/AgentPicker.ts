@@ -16,7 +16,7 @@ export function AgentPicker(agent: Sync.Ref<string>) {
     const refresh = async () => {
         loading.set(true);
         try {
-            agents.set(await api.fetch("GET /v1/agents", { params: { pathname: {}, search: {} } }));
+            agents.set(await api.fetch("GET /v1/agents", { params: {} }));
         } catch (cause) {
             console.error(cause);
         } finally {

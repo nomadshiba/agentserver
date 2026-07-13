@@ -15,7 +15,7 @@ const scroller = document.scrollingElement ?? document.body;
 
 export async function Chat(chatId: string) {
     const { section, ol, li, form, button, menu } = tags;
-    const chat = await api.fetch("GET /v1/chats/:chatId", { params: { pathname: { chatId }, search: {} } });
+    const chat = await api.fetch("GET /v1/chats/:chatId", { params: { pathname: { chatId } } });
     const self = section().id("chat").ariaLabel(`Chat Conversation: ${chat.name}`);
     self.$bind(ChatStyle.useScope());
 
@@ -35,7 +35,7 @@ export async function Chat(chatId: string) {
 
         socket.addEventListener("open", () => {
             // TODO: Don't download all of the history at once
-            api.fetch("GET /v1/chats/:chatId/messages", { params: { pathname: { chatId }, search: {} } }).then((messages) => {
+            api.fetch("GET /v1/chats/:chatId/messages", { params: { pathname: { chatId } } }).then((messages) => {
                 log.replaceChildren();
                 const shouldScroll = scroller.scrollHeight - scroller.scrollTop - innerHeight < 50;
                 for (const message of messages) {
@@ -82,21 +82,14 @@ export async function Chat(chatId: string) {
     const agent = ref(chat.agent);
     const model = ref(chat.model);
 
-    self.$bind(() =>
-        agent.follow((agent) => api.fetch("PATCH /v1/chats/:chatId", { params: { pathname: { chatId }, search: {} }, data: { agent } }))
-    );
-    self.$bind(() =>
-        model.follow((model) => api.fetch("PATCH /v1/chats/:chatId", { params: { pathname: { chatId }, search: {} }, data: { model } }))
-    );
+    self.$bind(() => agent.follow((agent) => api.fetch("PATCH /v1/chats/:chatId", { params: { pathname: { chatId } }, data: { agent } })));
+    self.$bind(() => model.follow((model) => api.fetch("PATCH /v1/chats/:chatId", { params: { pathname: { chatId } }, data: { model } })));
 
     return self.append$(
         log,
         form().onsubmit((event) => {
             event.preventDefault();
-            api.fetch("POST /v1/chats/:chatId/messages", {
-                params: { pathname: { chatId }, search: {} },
-                data: { content: content.get() },
-            });
+            api.fetch("POST /v1/chats/:chatId/messages", { params: { pathname: { chatId } }, data: { content: content.get() } });
             content.set("");
         }).append$(
             ChatBox(content),

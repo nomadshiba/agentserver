@@ -47,7 +47,7 @@ export class RouterClient<const TSchema extends Schema> {
         const [method, pattern] = key.split(" ");
         const [pathnameTemplate] = pattern.split("?");
 
-        const pathnameParams = options.params.pathname as Record<string, string>;
+        const pathnameParams = (options.params?.pathname ?? {}) as Record<string, string>;
         const pathname = pathnameTemplate
             .split("/")
             .map((segment) => {
@@ -60,7 +60,7 @@ export class RouterClient<const TSchema extends Schema> {
             .join("/");
 
         const url = new URL(this.baseUrl + pathname);
-        for (const [name, value] of Object.entries(options.params.search as Record<string, string | undefined>)) {
+        for (const [name, value] of Object.entries((options.params?.search ?? {}) as Record<string, string | undefined>)) {
             if (value === undefined) continue;
             url.searchParams.set(name, value);
         }

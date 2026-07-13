@@ -9,7 +9,7 @@ export async function ChatNavigation() {
     const self = nav().id("primary-nav").ariaLabel("Primary Navigation");
     self.$bind(ChatNavigationStyle.useScope());
 
-    const chats = await api.fetch("GET /v1/chats", { params: { pathname: {}, search: {} } });
+    const chats = await api.fetch("GET /v1/chats", { params: {} });
 
     self.append$(NewChatLink(), ul().id("chats").ariaLabel("Chat Rooms").append$(chats.map(ChatNavigationItem)), ProviderManager());
 

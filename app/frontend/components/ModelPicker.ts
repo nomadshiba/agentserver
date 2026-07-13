@@ -22,8 +22,8 @@ export function ModelPicker(model: Sync.Ref<SelectedModel | undefined>) {
         loading.set(true);
         try {
             const [models, providers] = await Promise.all([
-                api.fetch("GET /v1/models", { params: { pathname: {}, search: {} } }),
-                api.fetch("GET /v1/providers", { params: { pathname: {}, search: {} } }),
+                api.fetch("GET /v1/models", { params: {} }),
+                api.fetch("GET /v1/providers", { params: {} }),
             ]);
             loaded.set({ models, providers });
         } catch (cause) {

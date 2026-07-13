@@ -6,14 +6,18 @@ type SchemaKeyGeneric = `${string} /${string}`;
 export type Schema = { [key: SchemaKeyGeneric]: { input: Codec<_>; output: Codec<_> } };
 export type SchemaKey<TSchema extends Schema = Schema> = Extract<keyof TSchema, SchemaKeyGeneric>;
 
+type OptionalizeEmpty<T> =
+    & { [K in keyof T as [keyof T[K]] extends [never] ? never : (string extends keyof T[K] ? never : K)]: T[K] }
+    & { [K in keyof T]?: T[K] };
+
 export namespace Schema {
-    export type InferParams<TSchemaKey extends SchemaKey> = {
+    export type InferParams<TSchemaKey extends SchemaKey> = OptionalizeEmpty<{
         pathname: Record<MapPathParams<InferPattern<TSchemaKey>["Path"]>[number], string>;
         search:
             & Record<MapSearchParams<InferPattern<TSchemaKey>["Search"]>[number], string>
             // deno-lint-ignore ban-types
             & Record<string & {}, string | undefined>;
-    };
+    }>;
 
     // Internal Helpers
     type IsParam<T extends string> = T extends `:${infer U}` ? U : never;
