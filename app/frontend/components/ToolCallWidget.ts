@@ -102,7 +102,8 @@ const ToolCallsModalStyle = css`
         grid-template-columns: 1fr auto;
         align-items: center;
         gap: 0.5em;
-        padding: 0.85em 1em;
+        padding-block: 0.85em;
+        padding-inline: 1em;
         border-block-end: 1px solid var(--border);
     }
 

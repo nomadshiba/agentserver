@@ -66,7 +66,8 @@ const MarkdownStyle = css`
 
     code {
         background-color: #35353d;
-        padding: 0.1em 0.35em;
+        padding-block: 0.1em;
+        padding-inline: 0.35em;
         border-radius: 0.25em;
         font-family: monospace;
         font-size: 0.9em;
@@ -75,7 +76,8 @@ const MarkdownStyle = css`
     pre:has(code) {
         background-color: #1d1d20;
         color: #cdd6f4;
-        padding: 0.75em 1em;
+        padding-block: 0.75em;
+        padding-inline: 1em;
 
         border-radius: 0.5em;
         line-height: 1.5;
@@ -90,11 +92,13 @@ const MarkdownStyle = css`
 
     table {
         border-collapse: collapse;
-        margin: 0.75em 0;
+        margin-block: 0.75em;
+        margin-inline: 0;
     }
     th, td {
         border: 1px solid #6b6b85;
-        padding: 0.4em 0.8em;
+        padding-block: 0.4em;
+        padding-inline: 0.8em;
     }
     th {
         font-weight: var(--weight-medium, 600);
@@ -102,8 +106,10 @@ const MarkdownStyle = css`
     }
     blockquote {
         border-left: 3px solid #7aa2f7;
-        margin: 0.75em 0;
-        padding: 0.1em 1em;
+        margin-block: 0.75em;
+        margin-inline: 0;
+        padding-block: 0.1em;
+        padding-inline: 1em;
         color: color-mix(in srgb, currentcolor, transparent 12%);
     }
     .tok-kw {

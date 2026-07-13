@@ -231,8 +231,8 @@ const AgentModalStyle = css`
     ul {
         display: block grid;
         gap: 0.4em;
-        padding: 0.25em 1em 1em;
-        list-style: none;
+        padding-block: 0.25em 1em;
+        padding-inline: 1em;
     }
 
     ul li {

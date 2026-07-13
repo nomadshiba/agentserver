@@ -39,7 +39,6 @@ const ChatNavigationStyle = css`
     :scope {
         display: block grid;
         grid-template-rows: auto 1fr auto;
-        gap: 1em;
 
         padding-inline: 0.6em;
         padding-block: 1em;
@@ -47,14 +46,22 @@ const ChatNavigationStyle = css`
     }
 
     ul {
-        list-style: none;
         display: block grid;
         gap: 0.3em;
         align-content: start;
 
         grid-auto-rows: max-content;
         overflow-y: auto;
-        scrollbar-width: thin;
+        scrollbar-width: none;
+        mask-image: linear-gradient(
+            to bottom,
+            transparent 0,
+            black 1em,
+            black calc(100% - 2em),
+            transparent 100%
+        );
+        padding-block-start: 1em;
+        padding-block-end: 1em;
     }
 
     li {

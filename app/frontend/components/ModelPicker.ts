@@ -243,8 +243,8 @@ const ModelModalStyle = css`
     ul {
         display: block grid;
         gap: 0.4em;
-        list-style: none;
-        padding: 0.25em 1em 1em;
+        padding-block: 0.25em 1em;
+        padding-inline: 1em;
     }
 
     ul li {

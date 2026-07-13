@@ -116,7 +116,6 @@ const ChatStyle = css`
         display: block grid;
         gap: 2em;
         align-content: end;
-        list-style: none;
         padding-block-end: 2em;
     }
 
@@ -130,7 +129,8 @@ const ChatStyle = css`
         inset-block-end: var(--layout-gap);
         background-color: var(--base);
         border-radius: var(--layout-radius);
-        padding: 0.85em 0.9em;
+        padding-block: 0.85em;
+        padding-inline: 0.9em;
         box-shadow: 0 0 10px 5px var(--layout-base);
 
         gap: 0.85em;
@@ -141,8 +141,6 @@ const ChatStyle = css`
         display: block grid;
         gap: 0.6em;
         align-items: center;
-        list-style: none;
-        padding: 0;
 
         grid-template-columns: auto 1fr auto;
     }

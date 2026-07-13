@@ -217,8 +217,6 @@ const ProviderModalStyle = css`
     ul {
         display: block grid;
         gap: 0.4em;
-        list-style: none;
-        padding: 0;
     }
 
     ul > li {
@@ -297,9 +295,6 @@ const ProviderModalStyle = css`
         grid-auto-flow: column;
         gap: 0.5em;
         justify-content: start;
-        list-style: none;
-        margin: 0;
-        padding: 0;
 
         li {
             display: contents;
