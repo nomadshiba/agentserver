@@ -16,6 +16,7 @@ await import("~/backend/handlers/chats/many.ts");
 await import("~/backend/handlers/chats/one.ts");
 await import("~/backend/handlers/chats/update.ts");
 await import("~/backend/handlers/chats/delete.ts");
+await import("~/backend/handlers/chats/abort.ts");
 await import("~/backend/handlers/chats/messages/create.ts");
 await import("~/backend/handlers/chats/messages/many.ts");
 await import("~/backend/handlers/chats/messages/delete.ts");

@@ -72,7 +72,7 @@ const ChatNavigationStyle = css`
         padding-inline: 0.7em;
         padding-block: 0.55em;
         border-radius: var(--radius);
-        background-color: color-mix(in srgb, var(--base), var(--pop) 5%);
+        background-color: var(--surface);
         color: var(--pop);
         font-size: var(--text-md);
 
@@ -83,7 +83,7 @@ const ChatNavigationStyle = css`
         transition: background-color 0.12s ease;
 
         &:hover {
-            background-color: var(--surface-hover-strong);
+            background-color: var(--surface-strong);
         }
 
         &[aria-current="page"] {
@@ -94,11 +94,11 @@ const ChatNavigationStyle = css`
     }
 
     #new-chat {
-        background-color: color-mix(in srgb, var(--base), var(--pop) 5%);
+        background-color: var(--surface);
         color: var(--pop);
 
         &:hover {
-            background-color: color-mix(in srgb, var(--accent-base), white 10%);
+            background-color: var(--accent-surface);
         }
 
         &[aria-current="page"] {

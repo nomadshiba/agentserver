@@ -12,7 +12,7 @@
 - [ ] api endpoint encryption, https is not secure enough, especially with cf.
 - [ ] we don't show fails on the ui; we should — they come with done with kind fail.
 - [ ] ability to queue a `pause-agent` command while typing something, instead of having to interrupt the agent.
-- [ ] add agent interrupt
+- [+] add agent interrupt
 - [ ] all above applies to subagent chats as well, ability to pause, interrupt, and inject user message to subagents.
 - [ ] we also need subagent chat view on the ui
 - [ ] reasoning is not handled

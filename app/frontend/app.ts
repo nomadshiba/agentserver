@@ -62,30 +62,28 @@ const AppStyle = css`
 
 const GlobalStyle = css`
     :root {
-        /* Core palette */
         --base: hsl(240, 12%, 11%);
         --pop: hsl(0, 0%, 96%);
+        --surface: color-mix(in srgb, var(--base), currentcolor 8%);
+        --surface-strong: color-mix(in srgb, var(--base), currentcolor 14%);
+
         --accent-base: hsl(240, 50%, 50%);
         --accent-pop: hsl(240, 50%, 98%);
+        --accent-surface: color-mix(in srgb, var(--accent-base), currentcolor 8%);
 
-        /* Foreground scale, derived from --pop so contrast stays predictable
-        against --base (16:1). Use these instead of ad-hoc opacity. */
-        --muted: color-mix(in srgb, currentcolor, transparent 35%); /* ~7.4:1 on base, secondary text */
-        --subtle: color-mix(in srgb, currentcolor, transparent 45%); /* ~5.7:1 on base, meta/timestamps */
-        --faint: color-mix(in srgb, currentcolor, transparent 88%); /* decorative only, not text */
-
-        /* Surfaces & structure */
         --layout-base: hsl(240, 12%, 12%);
+        --layout-pop: hsl(0, 0%, 96%);
+        --layout-surface: color-mix(in srgb, var(--layout-base), currentcolor 8%);
+
+        --muted-low: color-mix(in srgb, currentcolor, transparent 35%);
+        --muted-mid: color-mix(in srgb, currentcolor, transparent 45%);
+        --muted-high: color-mix(in srgb, currentcolor, transparent 88%);
+
+        --border: var(--muted-high);
+        --radius: 0.35em;
         --layout-gap: 0.625em;
         --layout-radius: 0.75em;
 
-        --surface-hover: color-mix(in srgb, var(--base), var(--pop) 8%);
-        --surface-hover-strong: color-mix(in srgb, var(--base), var(--pop) 14%);
-
-        --border: color-mix(in srgb, currentcolor, transparent 88%);
-        --radius: 0.35em;
-
-        /* Type scale (em-relative so it composes with component font-size) */
         --text-xs: 0.75em;
         --text-sm: 0.8125em;
         --text-md: 0.875em;
@@ -96,13 +94,11 @@ const GlobalStyle = css`
         --weight-bold: 700;
 
         accent-color: var(--accent-base);
-        /* font-family: system-ui; */
         font-family: monospace;
         font-size: 1rem;
         line-height: 1.55;
     }
 
-    /* layout default not article/document, put articles/documents in shadow dom */
     *, *::before, *::after {
         box-sizing: border-box !important;
         margin: 0;

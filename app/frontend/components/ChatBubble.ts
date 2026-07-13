@@ -208,14 +208,14 @@ const ChatMessageStyle = css`
         time {
             display: block flow;
             font-size: var(--text-xs);
-            color: var(--subtle);
+            color: var(--current-medium);
         }
 
         strong {
             display: block flow;
             font-size: var(--text-sm);
             font-weight: var(--weight-medium);
-            color: var(--muted);
+            color: var(--muted-low);
             text-transform: capitalize;
             letter-spacing: 0.02em;
         }

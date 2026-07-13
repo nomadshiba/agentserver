@@ -85,6 +85,8 @@ export async function Chat(chatId: string) {
     self.$bind(() => agent.follow((agent) => api.fetch("PATCH /v1/chats/:chatId", { params: { pathname: { chatId } }, data: { agent } })));
     self.$bind(() => model.follow((model) => api.fetch("PATCH /v1/chats/:chatId", { params: { pathname: { chatId } }, data: { model } })));
 
+    const abort = () => api.fetch("POST /v1/chats/:chatId/abort", { params: { pathname: { chatId } } });
+
     return self.append$(
         log,
         form().onsubmit((event) => {
@@ -96,6 +98,7 @@ export async function Chat(chatId: string) {
             menu().append$(
                 li().append$(AgentPicker(agent)),
                 li().append$(ModelPicker(model)),
+                li().append$(button({ class: "stop" }).type("button").ariaLabel("Abort").onclick(abort)),
                 li().append$(button().type("submit").ariaLabel("Send")),
             ),
         ),
@@ -142,7 +145,7 @@ const ChatStyle = css`
         gap: 0.6em;
         align-items: center;
 
-        grid-template-columns: auto 1fr auto;
+        grid-template-columns: auto 1fr auto auto;
     }
 
     form menu li {
@@ -150,21 +153,13 @@ const ChatStyle = css`
         overflow: hidden;
     }
 
-    form menu button[type="submit"] {
-        all: unset;
-        cursor: pointer;
+    form menu button {
         display: block grid;
         aspect-ratio: 1;
-        color: var(--accent-pop);
-        background-color: var(--accent-base);
         border-radius: 50%;
         padding: 0.3em;
         inline-size: 1.85em;
         transition: background-color 0.15s ease, transform 0.1s ease;
-
-        &:hover {
-            background-color: color-mix(in srgb, var(--accent-base), white 10%);
-        }
 
         &:active {
             transform: scale(0.94);
@@ -174,9 +169,34 @@ const ChatStyle = css`
             content: "";
             display: block flow;
             background-color: currentcolor;
-            mask-image: url("/static/icons/send.svg");
             mask-size: contain;
             mask-position: center;
+        }
+
+        &[type="submit"] {
+            color: var(--accent-pop);
+            background-color: var(--accent-base);
+
+            &:hover {
+                background-color: var(--accent-surface);
+            }
+
+            &::before {
+                mask-image: url("/static/icons/send.svg");
+            }
+        }
+
+        &.stop {
+            color: var(--pop);
+            background-color: var(--surface);
+
+            &:hover {
+                background-color: var(--accent-surface);
+            }
+
+            &::before {
+                mask-image: url("/static/icons/stop.svg");
+            }
         }
     }
 `;

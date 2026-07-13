@@ -59,7 +59,7 @@ const MarkdownStyle = css`
     hr {
         border-width: 0;
         border-block-end-width: 1px;
-        border-color: var(--faint, currentcolor);
+        border-color: var(--muted-high, currentcolor);
         opacity: 0.6;
         margin-block: 1em;
     }

@@ -160,14 +160,14 @@ const ProviderManagerStyle = css`
         padding-inline: 0.7em;
         padding-block: 0.55em;
         border-radius: var(--radius);
-        color: var(--subtle);
+        color: var(--current-medium);
         font-size: var(--text-sm);
         font-weight: var(--weight-medium);
         border: 1px solid var(--border);
         transition: background-color 0.12s ease, color 0.12s ease;
 
         &:hover {
-            background-color: var(--surface-hover);
+            background-color: var(--surface);
             color: var(--pop);
         }
     }
@@ -198,7 +198,7 @@ const ProviderModalStyle = css`
         cursor: pointer;
         font-size: 1.4em;
         line-height: 1;
-        color: var(--subtle);
+        color: var(--current-medium);
 
         &:hover {
             color: var(--pop);
@@ -227,7 +227,7 @@ const ProviderModalStyle = css`
         padding-inline: 0.75em;
         padding-block: 0.55em;
         border-radius: var(--radius);
-        background-color: var(--surface-hover);
+        background-color: var(--surface);
 
         strong {
             display: block flow;
@@ -235,7 +235,7 @@ const ProviderModalStyle = css`
         }
 
         small {
-            color: var(--muted);
+            color: var(--muted-low);
             font-size: var(--text-sm);
         }
 
@@ -246,7 +246,7 @@ const ProviderModalStyle = css`
     }
 
     .hint {
-        color: var(--muted);
+        color: var(--muted-low);
     }
 
     fieldset {
@@ -267,7 +267,7 @@ const ProviderModalStyle = css`
         gap: 0.3em;
 
         small {
-            color: var(--subtle);
+            color: var(--current-medium);
             font-size: var(--text-sm);
         }
     }
@@ -278,10 +278,10 @@ const ProviderModalStyle = css`
         padding-inline: 0.75em;
         padding-block: 0.5em;
         border-radius: var(--radius);
-        background-color: color-mix(in srgb, var(--base), var(--pop) 6%);
+        background-color: var(--surface);
 
         &::placeholder {
-            color: var(--subtle);
+            color: var(--current-medium);
         }
 
         &:focus-visible {
@@ -313,15 +313,15 @@ const ProviderModalStyle = css`
         transition: background-color 0.12s ease;
 
         &:hover {
-            background-color: color-mix(in srgb, var(--accent-base), white 10%);
+            background-color: var(--accent-surface);
         }
 
         &[type="button"] {
-            background-color: var(--surface-hover);
+            background-color: var(--surface);
             color: var(--pop);
 
             &:hover {
-                background-color: var(--surface-hover-strong);
+                background-color: var(--surface-strong);
             }
         }
 

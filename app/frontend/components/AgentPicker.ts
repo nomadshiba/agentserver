@@ -114,11 +114,11 @@ const AgentPickerStyle = css`
         padding-inline: 0.75em;
         padding-block: 0.45em;
         border-radius: 999px;
-        background-color: var(--surface-hover);
+        background-color: var(--surface);
         transition: background-color 0.12s ease;
 
         small {
-            color: var(--subtle);
+            color: var(--current-medium);
             font-size: var(--text-xs);
         }
 
@@ -131,7 +131,7 @@ const AgentPickerStyle = css`
         }
 
         &:hover {
-            background-color: var(--surface-hover-strong);
+            background-color: var(--surface-strong);
         }
     }
 `;
@@ -168,7 +168,7 @@ const AgentModalStyle = css`
         cursor: pointer;
         font-size: 1.4em;
         line-height: 1;
-        color: var(--subtle);
+        color: var(--current-medium);
 
         &:hover {
             color: var(--pop);
@@ -189,10 +189,10 @@ const AgentModalStyle = css`
         padding-inline: 0.75em;
         padding-block: 0.5em;
         border-radius: var(--radius);
-        background-color: color-mix(in srgb, var(--base), var(--pop) 6%);
+        background-color: var(--surface);
 
         &::placeholder {
-            color: var(--subtle);
+            color: var(--current-medium);
         }
 
         &:focus-visible {
@@ -254,12 +254,12 @@ const AgentModalStyle = css`
         }
 
         small {
-            color: var(--muted);
+            color: var(--muted-low);
             font-size: var(--text-sm);
         }
 
         &:hover {
-            background-color: var(--surface-hover);
+            background-color: var(--surface);
         }
 
         &[aria-current="true"] {
@@ -267,13 +267,13 @@ const AgentModalStyle = css`
             color: var(--accent-pop);
 
             small {
-                color: color-mix(in srgb, var(--accent-pop), transparent 25%);
+                color: var(--muted-low);
             }
         }
     }
 
     .hint {
-        color: var(--muted);
+        color: var(--muted-low);
         font-size: var(--text-md);
         padding-block: 0.5em;
     }

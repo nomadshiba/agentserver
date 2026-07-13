@@ -61,7 +61,7 @@ const ChatBoxStyle = css`
         min-block-size: 2em;
 
         &::placeholder {
-            color: var(--subtle);
+            color: var(--current-medium);
         }
 
         &:focus-visible {

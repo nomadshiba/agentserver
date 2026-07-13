@@ -48,12 +48,12 @@ const ToolCallStyle = css`
         border-radius: var(--radius);
         font-size: var(--text-sm);
         font-weight: var(--weight-medium);
-        color: var(--muted);
-        background-color: var(--surface-hover);
+        color: var(--muted-low);
+        background-color: var(--surface);
         transition: background-color 0.12s ease;
 
         &:hover {
-            background-color: var(--surface-hover-strong);
+            background-color: var(--surface-strong);
         }
     }
 
@@ -112,7 +112,7 @@ const ToolCallsModalStyle = css`
         cursor: pointer;
         font-size: 1.4em;
         line-height: 1;
-        color: var(--subtle);
+        color: var(--current-medium);
 
         &:hover {
             color: var(--pop);
@@ -135,7 +135,7 @@ const ToolCallsModalStyle = css`
         font-weight: var(--weight-medium);
         text-transform: uppercase;
         letter-spacing: 0.04em;
-        color: var(--subtle);
+        color: var(--current-medium);
     }
 
     ${StatusTextMixin};

@@ -100,7 +100,7 @@ const NewChatStyle = css`
 
     .hint {
         justify-self: center;
-        color: var(--muted);
+        color: var(--muted-low);
         font-size: var(--text-lg);
     }
 
@@ -142,7 +142,7 @@ const NewChatStyle = css`
         transition: background-color 0.15s ease, transform 0.1s ease;
 
         &:hover {
-            background-color: color-mix(in srgb, var(--accent-base), white 10%);
+            background-color: var(--accent-surface);
         }
 
         &:active {

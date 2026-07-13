@@ -32,4 +32,6 @@ export const RoutesSchema = {
     "POST /v1/chats/:chatId/messages": { input: MessageContentUser, output: Void },
     "GET /v1/chats/:chatId/messages": { input: Void, output: new ArrayCodec(ChatMessageOutput) },
     "DELETE /v1/chats/:chatId/messages/:messageId": { input: Void, output: Void },
+
+    "POST /v1/chats/:chatId/abort": { input: Void, output: Void },
 } as const satisfies Schema;
