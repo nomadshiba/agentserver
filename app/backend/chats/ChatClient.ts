@@ -32,30 +32,28 @@ export class ChatClient {
     }
 
     public static async create(
-        name: string,
-        options?: { agent?: Agent; providerId?: string; model?: string; callId?: string },
+        options: {
+            name: string;
+            agent: Agent;
+            model: {
+                name: string;
+                providerId: string;
+            };
+            callId?: string | null;
+        },
     ): Promise<ChatClient> {
         const now = Date.now();
         const id = v7.generate(now);
 
-        const lastChat = await db.selectFrom("chat").orderBy("chat.updated", "desc")
-            .limit(1)
-            .select(["agent", "model", "provider_id"])
-            .executeTakeFirst();
-
-        // TODO: maybe this should be handled on the frontend? like frontend has to tell us during chat creation
-        // Backend should decide what is the default.
-        const agent = options?.agent?.name ?? lastChat?.agent ?? agents[0].name;
-        const provider_id = options?.providerId ?? lastChat?.provider_id;
-        const model = options?.model ?? lastChat?.model;
+        const { name, agent, model, callId } = options;
 
         await db.insertInto("chat").values({
             id,
             name,
-            root_tool_call_id: options?.callId,
-            agent,
-            model,
-            provider_id,
+            root_tool_call_id: callId,
+            agent: agent.name,
+            model: model.name,
+            provider_id: model.providerId,
             created: now,
             updated: now,
         }).execute();

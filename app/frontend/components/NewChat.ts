@@ -63,26 +63,23 @@ export async function NewChat() {
                 fail.set(null);
                 try {
                     const name = value.split("\n", 1)[0]!.slice(0, 60) || "New chat";
-                    const chat = await api.fetch("POST /v1/chats", { params: { pathname: {}, search: {} }, data: { name } });
-                    document.querySelector("#chats")!.prepend(toChild(ChatNavigationItem({ id: chat.id, name })));
 
-                    // Only patch what actually changed from what the chat was created with,
-                    // so we don't fire pointless requests when the user kept the defaults.
                     const currentAgent = agent.get();
                     const currentModel = model.get();
-                    const agentChanged = currentAgent !== defaults.agent;
-                    const modelChanged = currentModel?.name !== defaults.model?.name ||
-                        currentModel?.providerId !== defaults.model?.providerId;
 
-                    if (agentChanged || modelChanged) {
-                        await api.fetch("PATCH /v1/chats/:chatId", {
-                            params: { pathname: { chatId: chat.id }, search: {} },
-                            data: {
-                                ...(agentChanged ? { agent: currentAgent } : {}),
-                                ...(modelChanged && currentModel ? { model: currentModel } : {}),
-                            },
-                        });
+                    if (!currentModel) {
+                        throw new Error(`No model selected`);
                     }
+
+                    const chat = await api.fetch("POST /v1/chats", {
+                        params: { pathname: {}, search: {} },
+                        data: {
+                            name,
+                            agent: currentAgent,
+                            model: currentModel,
+                        },
+                    });
+                    document.querySelector("#chats")!.prepend(toChild(ChatNavigationItem({ id: chat.id, name })));
 
                     await api.fetch("POST /v1/chats/:chatId/messages", {
                         params: { pathname: { chatId: chat.id }, search: {} },

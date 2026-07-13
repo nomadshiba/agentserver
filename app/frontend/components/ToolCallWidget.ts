@@ -17,6 +17,7 @@ export function ToolCallWidget(
     const busy = call.value.result ? "false" : "true";
 
     const { modal, update } = modalCache.getOrInsertComputed(call.value.id, () => ToolCallModal());
+    modal.onclose((event) => event.currentTarget.remove());
     update(call);
 
     const self = button().type("button")
@@ -66,8 +67,6 @@ const ToolCallStyle = css`
 function ToolCallModal() {
     const { dialog, header, section, button, span } = tags;
     const self = dialog().$bind(ToolCallsModalStyle.useScope());
-
-    self.onclose((event) => event.currentTarget.remove());
 
     const update = (call: ToolCall) => {
         const busy = call.value.result ? "false" : "true";

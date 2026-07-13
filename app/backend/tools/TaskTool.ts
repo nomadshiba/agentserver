@@ -72,10 +72,13 @@ export class TaskTool extends Tool {
 
         let subChat: ChatClient;
         try {
-            subChat = await ChatClient.create(args.description || args.subagent_type, {
+            subChat = await ChatClient.create({
+                name: args.description || args.subagent_type,
                 agent: subagent,
-                providerId: chat.model.provider.id,
-                model: chat.model.name,
+                model: {
+                    name: chat.model.name,
+                    providerId: chat.model.provider.id,
+                },
                 callId: call.value.id,
             });
         } catch (reason) {
