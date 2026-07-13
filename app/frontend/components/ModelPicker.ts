@@ -76,7 +76,9 @@ export function ModelPicker(model: Sync.Ref<SelectedModel | undefined>) {
                 strong().textContent("Select Model"),
                 button({ class: "close" }).type("button").ariaLabel("Close").textContent("×").onclick(() => modal.close()),
                 new Builder(document.createElement("search")).append$(
-                    input().type("search").placeholder("Search models...").$bind(useValue(search)),
+                    input().type("search").placeholder("Search models...")
+                        .$bind(useValue(search))
+                        .$bind((element) => element.focus()),
                     button()
                         .type("button")
                         .ariaLabel("Refresh models")

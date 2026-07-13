@@ -16,7 +16,8 @@
 - [ ] all above applies to subagent chats as well, ability to pause, interrupt, and inject user message to subagents.
 - [ ] we also need subagent chat view on the ui
 - [ ] reasoning is not handled
-- [ ] copy, edit buttons
+- [+] copy button
+- [ ] revert button
 - [ ] scroll down button
 - [ ] bucket based storage for scopes, (chat, user), only primary agents can see the user's bucket, for subagents to see them they have to
       give them permission as well. or copy it to their chat bucket. buckets similar to s3 api, but on disk.
@@ -25,4 +26,4 @@
 - [ ] handle partial assitant messages and unfinished tool calls in db at startup. probably give an error for the tool call, and make the
       message non-partial.
 - [/] mobile responsive tweaks
-- [ ] auto focus on related text field.
+- [+] auto focus on related text field.

@@ -117,6 +117,7 @@ const ChatStyle = css`
         gap: 2em;
         align-content: end;
         list-style: none;
+        padding-block-end: 2em;
     }
 
     ol[role="log"] li {

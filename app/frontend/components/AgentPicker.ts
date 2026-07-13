@@ -64,7 +64,9 @@ export function AgentPicker(agent: Sync.Ref<string>) {
                 strong().textContent("Select Agent"),
                 button({ class: "close" }).type("button").ariaLabel("Close").textContent("×").onclick(() => modal.close()),
                 new Builder(document.createElement("search")).append$(
-                    input().type("search").placeholder("Search agents...").$bind(useValue(search)),
+                    input().type("search").placeholder("Search agents...")
+                        .$bind(useValue(search))
+                        .$bind((element) => element.focus()),
                     button()
                         .type("button")
                         .ariaLabel("Refresh agents")

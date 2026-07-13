@@ -15,11 +15,7 @@ export async function NewChat() {
         undefined,
     );
 
-    if (lastChat) {
-        return { agent: lastChat.agent, model: lastChat.model };
-    }
-
-    const defaults = await Promise.all([
+    const defaults = lastChat ? { agent: lastChat.agent, model: lastChat.model } : await Promise.all([
         api.fetch("GET /v1/agents", { params: {} }),
         api.fetch("GET /v1/models", { params: {} }),
     ]).then(([agents, models]) => ({

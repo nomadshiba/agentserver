@@ -109,8 +109,17 @@ const GlobalStyle = css`
         text-box-trim: trim-both;
     }
 
-    ol, ul {
+    ol, ul, menu {
         padding: 0;
+        list-style: none;
+    }
+
+    button {
+        appearance: none;
+        background-color: transparent;
+        color: currentcolor;
+        padding: 0;
+        border: none;
     }
 
     dialog:where([open]) {

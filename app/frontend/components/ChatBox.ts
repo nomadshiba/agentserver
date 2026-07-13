@@ -7,12 +7,15 @@ export function ChatBox(content: Sync.Ref<string>) {
 
     return label().$bind(ChatBoxStyle.useScope()).append$(
         strong().textContent("Compose Message"),
-        textarea().placeholder("Say something...").onkeydown((event) => {
-            if (event.key !== "Enter") return;
-            if (event.shiftKey) return;
-            event.preventDefault();
-            event.currentTarget.closest("form")?.dispatchEvent(new SubmitEvent("submit"));
-        }).$bind(useValue(content))
+        textarea().placeholder("Say something...")
+            .onkeydown((event) => {
+                if (event.key !== "Enter") return;
+                if (event.shiftKey) return;
+                event.preventDefault();
+                event.currentTarget.closest("form")?.dispatchEvent(new SubmitEvent("submit"));
+            })
+            .$bind(useValue(content))
+            .$bind((element) => element.focus())
             .$bind((element) => {
                 const aborter = new AbortController();
 

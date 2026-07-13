@@ -6,6 +6,7 @@ import { ToolCallWidget } from "~/frontend/components/ToolCallWidget.ts";
 import { ChatAssistantStreamEmittter } from "~/frontend/events/ChatAssistantStreamEmittter.ts";
 import { css } from "~/frontend/kit/css.ts";
 import { relativeDate } from "~/frontend/utils/date.ts";
+import { delay } from "@std/async";
 
 const RELATIVE_STEPS = [
     60 * 60 * 1000,
@@ -16,7 +17,7 @@ export function ChatBubble(message: ChatMessageOutput) {
     const { content } = message;
     const { kind } = content;
 
-    const { article, header, strong, time, p, ul, li, span } = tags;
+    const { article, header, strong, time, p, ul, li, span, menu, button } = tags;
 
     const relative = sync<string>((set) => {
         const created = message.created.getTime();
@@ -137,21 +138,44 @@ export function ChatBubble(message: ChatMessageOutput) {
                 };
             });
 
-            return self;
+            self;
+            break;
         }
         case "user": {
-            return self.append$(
+            self.append$(
                 p().textContent(content.value.content),
             );
+            break;
         }
         case "system": {
-            return self.append$(
+            self.append$(
                 Markdown(content.value.content ?? ""),
             );
+            break;
         }
+        default:
+            throw new Error(`Unsupported message type ${kind satisfies never}`);
     }
 
-    throw new Error(`Unsupported message type ${kind}`);
+    self.append$(
+        menu().append$(
+            li().append$(
+                button().type("button")
+                    .onclick(async (event) => {
+                        const button = event.currentTarget;
+                        button.disabled = true;
+                        await navigator.clipboard.writeText(content.value.content ?? "");
+                        button.textContent = `Copied!`;
+                        await delay(1000);
+                        button.textContent = `Copy`;
+                        button.disabled = false;
+                    })
+                    .textContent("Copy"),
+            ),
+        ),
+    );
+
+    return self;
 }
 
 const ChatMessageStyle = css`
@@ -159,14 +183,13 @@ const ChatMessageStyle = css`
         display: block grid;
         gap: 0.6em;
         border-radius: var(--layout-radius);
-        padding: 0.75em 1em;
+        padding-inline: 1em;
+        padding-block: 0.75em 
         max-inline-size: 98%;
     }
 
     :scope.role-user {
         justify-self: end;
-        background-color: var(--base);
-        color: var(--pop);
 
         p {
             white-space: pre-wrap;
@@ -201,7 +224,6 @@ const ChatMessageStyle = css`
     ul {
         display: block grid;
         gap: 0.4em;
-        list-style: none;
         justify-items: start;
     }
 
@@ -222,5 +244,27 @@ const ChatMessageStyle = css`
 
     [role="status"][aria-busy="false"] {
         display: none;
+    }
+
+    menu {
+        display: block grid;
+        gap: 0.4em;
+        grid-auto-flow: column;
+    }
+
+    :scope:not(:hover) menu {
+        opacity: 0;
+    }
+
+    button {
+        color: color-mix(in srgb, currentcolor, transparent 20%);
+        background-color: color-mix(in srgb, currentcolor, transparent 98%);
+        padding-inline: 0.5em;
+        padding-block: 0.25em;
+        border-radius: var(--radius);
+
+        &:hover {
+            background-color: color-mix(in srgb, currentcolor, transparent 90%);
+        }
     }
 `;
