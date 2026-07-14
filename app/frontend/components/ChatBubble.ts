@@ -208,7 +208,7 @@ const ChatMessageStyle = css`
         time {
             display: block flow;
             font-size: var(--text-xs);
-            color: var(--current-medium);
+            color: var(--muted-mid);
         }
 
         strong {

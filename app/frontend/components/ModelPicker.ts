@@ -130,7 +130,7 @@ const ModelPickerStyle = css`
         transition: background-color 0.12s ease;
 
         small {
-            color: var(--current-medium);
+            color: var(--muted-mid);
             font-size: var(--text-xs);
         }
 
@@ -180,7 +180,7 @@ const ModelModalStyle = css`
         cursor: pointer;
         font-size: 1.4em;
         line-height: 1;
-        color: var(--current-medium);
+        color: var(--muted-mid);
 
         &:hover {
             color: var(--pop);
@@ -202,7 +202,7 @@ const ModelModalStyle = css`
         background-color: var(--surface);
 
         &::placeholder {
-            color: var(--current-medium);
+            color: var(--muted-mid);
         }
 
         &:focus-visible {

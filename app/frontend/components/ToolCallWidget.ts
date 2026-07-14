@@ -112,7 +112,7 @@ const ToolCallsModalStyle = css`
         cursor: pointer;
         font-size: 1.4em;
         line-height: 1;
-        color: var(--current-medium);
+        color: var(--muted-mid);
 
         &:hover {
             color: var(--pop);
@@ -135,7 +135,7 @@ const ToolCallsModalStyle = css`
         font-weight: var(--weight-medium);
         text-transform: uppercase;
         letter-spacing: 0.04em;
-        color: var(--current-medium);
+        color: var(--muted-mid);
     }
 
     ${StatusTextMixin};

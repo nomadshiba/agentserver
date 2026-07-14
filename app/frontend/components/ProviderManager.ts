@@ -160,7 +160,7 @@ const ProviderManagerStyle = css`
         padding-inline: 0.7em;
         padding-block: 0.55em;
         border-radius: var(--radius);
-        color: var(--current-medium);
+        color: var(--muted-mid);
         font-size: var(--text-sm);
         font-weight: var(--weight-medium);
         border: 1px solid var(--border);
@@ -198,7 +198,7 @@ const ProviderModalStyle = css`
         cursor: pointer;
         font-size: 1.4em;
         line-height: 1;
-        color: var(--current-medium);
+        color: var(--muted-mid);
 
         &:hover {
             color: var(--pop);
@@ -267,7 +267,7 @@ const ProviderModalStyle = css`
         gap: 0.3em;
 
         small {
-            color: var(--current-medium);
+            color: var(--muted-mid);
             font-size: var(--text-sm);
         }
     }
@@ -281,7 +281,7 @@ const ProviderModalStyle = css`
         background-color: var(--surface);
 
         &::placeholder {
-            color: var(--current-medium);
+            color: var(--muted-mid);
         }
 
         &:focus-visible {

@@ -8,7 +8,7 @@ export const StatusTextMixin = mixin`
     [role="status"] {
         font-size: 0.9em;
         font-weight: var(--weight-regular);
-        color: var(--current-medium);
+        color: var(--muted-mid);
     }
 
     [role="status"][aria-busy="true"] {
